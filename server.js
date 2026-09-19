@@ -1,4 +1,5 @@
 require("dotenv").config();
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
@@ -31,7 +32,9 @@ const limiter = rateLimit({
 app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public"));
+const publicDir = path.join(__dirname, "public");
+app.use(express.static(publicDir));
+app.get("/", (req, res) => res.sendFile(path.join(publicDir, "index.html")));
 app.use("/api/generate", limiter);
 
 // --- Rutas ----------------------------------------------------
