@@ -405,13 +405,14 @@ function loadExampleScenario() {
 
   setTimeout(() => {
     const responseNode = document.createElement("div");
-    responseNode.className = "msg-in space-y-6 pt-2";
+    responseNode.className = "space-y-6 pt-2";
     responseNode.innerHTML = `
       <div class="flex items-center space-x-2 text-[13px] font-semibold text-on-surface uppercase tracking-wider"><span>SECOND THOUGHT</span></div>
       ${ex.html}
     `;
     const speech = responseNode.querySelector("[data-speech]");
     if (speech) responseNode.appendChild(createListenControl(() => speech.innerText));
+    revealElements(Array.from(responseNode.children));
     if (stream) {
       stream.appendChild(responseNode);
       responseNode.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -545,6 +546,105 @@ function renderRichText(text) {
   }
 
   return out.join("");
+}
+
+// ============================================================
+// APARICIÓN SECUENCIAL DE MENSAJES
+// ============================================================
+// Devuelve los elementos que entran uno por uno: cada hijo directo, y cada ítem de las listas.
+function revealTargets(container) {
+  const out = [];
+  Array.from(container.children).forEach((el) => {
+    if (el.tagName === "UL" || el.tagName === "OL") out.push(...el.children);
+    else out.push(el);
+  });
+  return out;
+}
+
+function revealElements(els, start = 0) {
+  let i = start;
+  els.forEach((el) => {
+    el.style.setProperty("--i", Math.min(i, 16));
+    el.classList.add("reveal-item");
+    i++;
+  });
+  return i;
+}
+
+// ============================================================
+// SELECTOR DE VOZ (desplegable propio sobre el <select> oculto)
+// ============================================================
+function initVoicePicker() {
+  const select = document.getElementById("voice-select");
+  if (!select || select.dataset.enhanced) return;
+  select.dataset.enhanced = "1";
+  select.classList.add("sr-only");
+  select.tabIndex = -1;
+
+  const picker = document.createElement("div");
+  picker.className = "voice-picker relative inline-block";
+  picker.innerHTML = `
+    <button aria-expanded="false" aria-haspopup="listbox" class="voice-btn inline-flex items-center gap-3 border border-border-subtle px-3.5 py-1.5 text-[12px] font-medium uppercase tracking-wide text-on-surface hover:border-on-surface transition-colors cursor-pointer" type="button">
+      <span class="voice-current"></span><span aria-hidden="true" class="voice-chevron"></span>
+    </button>
+    <ul aria-label="Elegir voz" class="voice-menu absolute bottom-full left-0 mb-2 min-w-[168px] bg-background border border-border-subtle py-1.5 z-30" role="listbox"></ul>`;
+  select.after(picker);
+
+  const btn = picker.querySelector(".voice-btn");
+  const menu = picker.querySelector(".voice-menu");
+  const current = picker.querySelector(".voice-current");
+
+  const options = Array.from(select.options).map((opt) => {
+    const li = document.createElement("li");
+    li.setAttribute("role", "presentation");
+    li.innerHTML = `<button aria-selected="false" class="voice-option w-full flex items-center justify-between gap-6 px-4 py-2 text-left text-[12px] font-medium uppercase tracking-wide text-on-surface cursor-pointer" data-value="${opt.value}" role="option" tabindex="-1" type="button"><span>${opt.textContent}</span><span aria-hidden="true" class="voice-dot h-1.5 w-1.5 rounded-full bg-on-surface"></span></button>`;
+    menu.appendChild(li);
+    return li.firstElementChild;
+  });
+
+  const sync = () => {
+    current.textContent = select.selectedOptions[0]?.textContent || "";
+    options.forEach((o) => o.setAttribute("aria-selected", String(o.dataset.value === select.value)));
+  };
+  const setOpen = (open) => {
+    picker.classList.toggle("is-open", open);
+    btn.setAttribute("aria-expanded", String(open));
+    if (open) (options.find((o) => o.dataset.value === select.value) || options[0]).focus({ preventScroll: true });
+  };
+
+  btn.addEventListener("click", () => setOpen(!picker.classList.contains("is-open")));
+  options.forEach((o) =>
+    o.addEventListener("click", () => {
+      select.value = o.dataset.value;
+      select.dispatchEvent(new Event("change"));
+      setOpen(false);
+      btn.focus();
+    })
+  );
+  picker.addEventListener("keydown", (e) => {
+    const open = picker.classList.contains("is-open");
+    if (e.key === "Escape" && open) {
+      setOpen(false);
+      btn.focus();
+    } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && open) {
+      e.preventDefault();
+      const i = options.indexOf(document.activeElement);
+      const next = e.key === "ArrowDown" ? (i + 1) % options.length : (i - 1 + options.length) % options.length;
+      options[next].focus();
+    } else if (e.key === "ArrowDown" && !open) {
+      e.preventDefault();
+      setOpen(true);
+    }
+  });
+  document.addEventListener("click", (e) => {
+    if (!picker.contains(e.target)) picker.classList.remove("is-open"), btn.setAttribute("aria-expanded", "false");
+  });
+
+  select.addEventListener("change", sync);
+  sync();
+  // el valor guardado se aplica después de crear el selector
+  picker.syncVoice = sync;
+  select.syncVoice = sync;
 }
 
 // ============================================================
@@ -815,17 +915,23 @@ async function handleSendMessage() {
     }
 
     const resp = document.createElement("div");
-    resp.className = "msg-in space-y-4 pt-2";
+    resp.className = "space-y-4 pt-2";
     resp.innerHTML = `
       <div class="flex items-center space-x-2 text-[13px] font-semibold text-on-surface uppercase tracking-wider">
         <span>SECOND THOUGHT</span>
       </div>
-      <div class="space-y-4 text-[15px] leading-relaxed text-on-surface">${renderRichText(data.answer)}</div>
+      <div class="space-y-4 text-[15px] leading-relaxed text-on-surface" data-content>${renderRichText(data.answer)}</div>
     `;
-    if (currentMode === "imagine") resp.appendChild(createListenControl(() => data.answer));
+    let revealIdx = revealElements([resp.firstElementChild], 0);
+    revealIdx = revealElements(revealTargets(resp.querySelector("[data-content]")), revealIdx);
+    if (currentMode === "imagine") {
+      const listen = createListenControl(() => data.answer);
+      revealElements([listen], revealIdx);
+      resp.appendChild(listen);
+    }
     if (stream) {
       stream.appendChild(resp);
-      resp.scrollIntoView({ behavior: "smooth", block: "end" });
+      resp.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     history.push({ role: "user", content: [text, freshImages.length ? `[${freshImages.length} imagen(es) adjunta(s)]` : ""].filter(Boolean).join(" ") });
@@ -847,6 +953,7 @@ async function handleSendMessage() {
 document.addEventListener("DOMContentLoaded", () => {
   loadModes();
   renderAccordion();
+  initVoicePicker();
 
   const loginForm = document.getElementById("login-form");
   if (loginForm) loginForm.addEventListener("submit", handleLoginSubmit);
@@ -886,7 +993,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (voice) {
     try {
       const saved = localStorage.getItem("st-voice");
-      if (saved) voice.value = saved;
+      if (saved) {
+        voice.value = saved;
+        voice.syncVoice?.();
+      }
     } catch {}
     voice.addEventListener("change", () => {
       try {
