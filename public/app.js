@@ -731,7 +731,11 @@ function renderAttachPreview() {
 // ============================================================
 function autoGrow(el) {
   el.style.height = "auto";
+  // Con el campo vacío, medimos usando el placeholder para que nunca quede cortado.
+  const wasEmpty = !el.value;
+  if (wasEmpty) el.value = el.placeholder;
   const h = el.scrollHeight;
+  if (wasEmpty) el.value = "";
   if (!h) {
     el.style.height = "";
     return;
@@ -861,6 +865,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
     userInput.addEventListener("input", () => autoGrow(userInput));
+    window.addEventListener("resize", () => autoGrow(userInput));
     userInput.addEventListener("paste", (e) => {
       const files = Array.from(e.clipboardData?.files || []).filter((f) => f.type.startsWith("image/"));
       if (files.length && currentMode === "imagine") {
