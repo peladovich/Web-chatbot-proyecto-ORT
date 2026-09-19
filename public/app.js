@@ -1163,11 +1163,80 @@ function deleteConversation(id) {
   }
 }
 
+function buildModeOptions() {
+  const box = document.getElementById("mode-modal-options");
+  if (!box || box.childElementCount) return;
+  box.innerHTML = ACCORDION.map(
+    (m, i) =>
+      '<button class="mode-option w-full text-left py-4 px-1 flex items-baseline gap-4 cursor-pointer" data-mode="' + m.id + '" style="--i:' + i + '" type="button">' +
+      '<span class="text-[13px] font-mono text-outline">' + m.code + "</span>" +
+      '<span class="flex-1 min-w-0"><span class="block text-xl font-semibold tracking-tight text-on-surface">' + m.title + "</span>" +
+      '<span class="block mt-1 text-[13px] leading-snug text-on-surface-variant">' + m.desc + "</span></span>" +
+      '<span aria-hidden="true" class="mode-arrow text-[18px] text-on-surface">↗</span></button>'
+  ).join("");
+}
+
+function isModePickerOpen() {
+  return document.getElementById("mode-modal")?.classList.contains("is-open");
+}
+
+function setModePickerOpen(open) {
+  const modal = document.getElementById("mode-modal");
+  const card = modal?.querySelector(".mode-modal-card");
+  if (!modal || !card) return;
+  if (open) {
+    buildModeOptions();
+    card.inert = false;
+    modal.setAttribute("aria-hidden", "false");
+    modal.classList.add("is-open");
+    setTimeout(() => card.querySelector(".mode-option")?.focus({ preventScroll: true }), 80);
+  } else {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    card.inert = true;
+    document.getElementById("history-new")?.focus({ preventScroll: true });
+  }
+}
+
+function startNewConversation(modeKey) {
+  const modal = document.getElementById("mode-modal");
+  modal.classList.remove("is-open");
+  modal.setAttribute("aria-hidden", "true");
+  modal.querySelector(".mode-modal-card").inert = true;
+  setHistoryOpen(false);
+  routeToModule(modeKey);
+  setTimeout(() => document.getElementById("user-input")?.focus({ preventScroll: true }), 350);
+}
+
 function initHistory() {
   document.querySelectorAll("[data-open-history]").forEach((b) => b.addEventListener("click", () => setHistoryOpen(true)));
   document.querySelectorAll("[data-close-history]").forEach((b) => b.addEventListener("click", () => setHistoryOpen(false)));
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && document.getElementById("history-drawer")?.classList.contains("is-open")) setHistoryOpen(false);
+    if (e.key === "Escape") {
+      if (isModePickerOpen()) setModePickerOpen(false);
+      else if (document.getElementById("history-drawer")?.classList.contains("is-open")) setHistoryOpen(false);
+    } else if (e.key === "Tab" && isModePickerOpen()) {
+      const items = Array.from(document.querySelectorAll("#mode-modal button:not([disabled])"));
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && isModePickerOpen()) {
+      const items = Array.from(document.querySelectorAll("#mode-modal .mode-option"));
+      const i = items.indexOf(document.activeElement);
+      e.preventDefault();
+      items[(i + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length]?.focus();
+    }
+  });
+  document.querySelectorAll("[data-close-modal]").forEach((b) => b.addEventListener("click", () => setModePickerOpen(false)));
+  document.getElementById("mode-modal-options")?.addEventListener("click", (e) => {
+    const opt = e.target.closest("[data-mode]");
+    if (opt) startNewConversation(opt.dataset.mode);
   });
   document.getElementById("history-list")?.addEventListener("click", (e) => {
     const del = e.target.closest("[data-del]");
@@ -1178,11 +1247,7 @@ function initHistory() {
     const open = e.target.closest("[data-open]");
     if (open) openConversation(open.dataset.open);
   });
-  document.getElementById("history-new")?.addEventListener("click", () => {
-    setHistoryOpen(false);
-    if (currentRoute === "modules") clearConversation();
-    else routeTo("selector");
-  });
+  document.getElementById("history-new")?.addEventListener("click", () => setModePickerOpen(true));
   document.getElementById("history-clear-all")?.addEventListener("click", () => {
     if (!readStore().length) return;
     if (confirm("¿Borrar todo el historial de este navegador? No se puede deshacer.")) {

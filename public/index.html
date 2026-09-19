@@ -242,6 +242,27 @@
     .history-item:hover .history-del, .history-item:focus-within .history-del { opacity: 1; }
     @media (hover: none) { .history-item .history-del { opacity: 0.6; } }
 
+    /* Ventana para elegir el modo de una nueva conversación */
+    .mode-modal { pointer-events: none; }
+    .mode-modal.is-open { pointer-events: auto; }
+    .mode-modal-backdrop { opacity: 0; transition: opacity 280ms ease; backdrop-filter: blur(2px); }
+    .mode-modal.is-open .mode-modal-backdrop { opacity: 1; }
+    .mode-modal-card {
+      opacity: 0; transform: translateY(18px) scale(0.97);
+      transition: opacity 240ms ease, transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 30px 70px -30px rgba(24, 24, 27, 0.45);
+    }
+    .mode-modal.is-open .mode-modal-card { opacity: 1; transform: translateY(0) scale(1); }
+    .mode-option { opacity: 0; transform: translateY(10px); }
+    .mode-modal.is-open .mode-option {
+      animation: tranquilFade 480ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: calc(var(--i, 0) * 80ms + 140ms);
+    }
+    .mode-option { transition: background-color 180ms ease, padding-left 260ms cubic-bezier(0.16, 1, 0.3, 1); }
+    .mode-option:hover, .mode-option:focus-visible { background-color: #F3F2EE; padding-left: 14px; outline: none; }
+    .mode-option .mode-arrow { opacity: 0; transform: translate(-6px, 6px); transition: opacity 200ms ease, transform 300ms cubic-bezier(0.16, 1, 0.3, 1); }
+    .mode-option:hover .mode-arrow, .mode-option:focus-visible .mode-arrow { opacity: 1; transform: translate(0, 0); }
+
     /* Selector de voz */
     .voice-btn .voice-chevron {
       width: 6px; height: 6px;
@@ -285,7 +306,8 @@
     .rich-table td { border-bottom: 1px solid #E7E5E4; }
 
     @media (prefers-reduced-motion: reduce) {
-      .acc-panel, .acc-icon, .acc-rule, .msg-in, .thumb-in, .eq i, .voice-menu, .voice-option, .history-panel, .history-backdrop { animation: none !important; transition: none !important; }
+      .acc-panel, .acc-icon, .acc-rule, .msg-in, .thumb-in, .eq i, .voice-menu, .voice-option, .history-panel, .history-backdrop, .mode-modal-card, .mode-modal-backdrop, .mode-option, .mode-arrow { animation: none !important; transition: none !important; }
+      .mode-option { opacity: 1 !important; transform: none !important; }
       .history-item { opacity: 1 !important; transform: none !important; animation: none !important; }
       .reveal-item { opacity: 1 !important; animation: none !important; filter: none !important; transform: none !important; }
       .acc-step, .acc-chip, .acc-enter { opacity: 1 !important; transform: none !important; animation: none !important; }
@@ -694,6 +716,19 @@ Ir al Inicio
 <button class="uppercase tracking-wider font-medium hover:text-on-surface transition-colors cursor-pointer" id="history-clear-all" type="button">Borrar todo</button>
 </div>
 </aside>
+</div>
+<div aria-hidden="true" class="mode-modal fixed inset-0 z-[60] flex items-center justify-center p-5" id="mode-modal">
+<div class="mode-modal-backdrop absolute inset-0 bg-on-surface/35" data-close-modal></div>
+<div aria-labelledby="mode-modal-title" aria-modal="true" class="mode-modal-card relative w-full max-w-lg bg-background border border-border-subtle px-6 py-7 sm:px-8 sm:py-8" inert role="dialog">
+<div class="flex items-start justify-between gap-6">
+<div>
+<div class="text-[11px] uppercase tracking-[0.18em] text-outline font-medium mb-2">Nueva conversación</div>
+<h2 class="text-2xl sm:text-3xl font-semibold tracking-tight text-on-surface" id="mode-modal-title">¿Con qué querés empezar?</h2>
+</div>
+<button aria-label="Cerrar" class="text-[24px] leading-none text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" data-close-modal type="button">×</button>
+</div>
+<div class="mt-6 divide-y divide-border-subtle border-t border-b border-border-subtle" id="mode-modal-options"></div>
+</div>
 </div>
 <script src="app.js"></script>
 
