@@ -137,6 +137,7 @@ function routeToModule(modeKey) {
 // Configuración activa del módulo (Cuestionar, Resolver, Imaginar)
 function setMode(modeKey) {
   currentMode = modeKey;
+  syncModeUI();
   const meta = MODES[modeKey];
   if (!meta) return;
 
@@ -165,10 +166,22 @@ function setMode(modeKey) {
   if (subtextEl) subtextEl.innerText = meta.subtext;
   if (inputEl) inputEl.setAttribute("placeholder", meta.placeholder);
 
-  const imgBar = document.getElementById("imagine-inline-bar");
-  if (imgBar) imgBar.classList.toggle("hidden", modeKey !== "imagine");
-
   clearConversation();
+}
+
+// Imágenes y voz existen solo en el modo Imaginar
+function setVisible(id, visible, displayClass) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle("hidden", !visible);
+  if (displayClass) el.classList.toggle(displayClass, visible);
+}
+
+function syncModeUI() {
+  const imagine = currentMode === "imagine";
+  setVisible("imagine-inline-bar", imagine);
+  setVisible("imagine-dropzone", imagine, "flex");
+  setVisible("voice-wrap", imagine, "inline-flex");
 }
 
 // Formulario de acceso — puerta temática, no autenticación real.
@@ -798,7 +811,7 @@ async function handleSendMessage() {
       </div>
       <div class="space-y-4 text-[15px] leading-relaxed text-on-surface">${renderRichText(data.answer)}</div>
     `;
-    resp.appendChild(createListenControl(() => data.answer));
+    if (currentMode === "imagine") resp.appendChild(createListenControl(() => data.answer));
     if (stream) {
       stream.appendChild(resp);
       resp.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -877,7 +890,9 @@ document.addEventListener("DOMContentLoaded", () => {
     fileInput.value = "";
   });
 
-  const zone = document.getElementById("input-zone");
+  document.getElementById("imagine-dropzone")?.addEventListener("click", () => fileInput?.click());
+
+  const zone = document.getElementById("view-modules");
   if (zone) {
     ["dragenter", "dragover"].forEach((ev) =>
       zone.addEventListener(ev, (e) => {
