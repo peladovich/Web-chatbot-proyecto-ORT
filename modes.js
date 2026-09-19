@@ -64,7 +64,7 @@ const modes = [
     heading: "¿Qué imagen querés que te cuente?",
     subtext:
       "Adjuntá una foto y la convertimos en un relato hablado, fiel a lo que se ve, pensado para personas ciegas o con baja visión. Después podés escucharlo.",
-    placeholder: "Opcional: pedí un largo (corto, medio, largo) o un registro (cercano, formal)...",
+    placeholder: "Opcional: nivel de detalle (normal, detallada, muy detallada) y registro (cercano, formal)...",
     systemPrompt: IMAGINE_PROMPT,
   },
 ];

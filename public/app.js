@@ -7,6 +7,7 @@ let isSubmitting = false;
 let isSending = false;
 let history = []; // [{ role: "user"|"assistant", content }] — se resetea al cambiar de modo
 let pendingImages = []; // data URLs listas para enviar (solo modo Imaginar)
+let lastImages = []; // últimas imágenes enviadas: viajan de nuevo si el usuario responde solo con texto
 let stopActiveAudio = null;
 const MAX_HISTORY_TURNS = 12;
 const MAX_IMAGES = 3;
@@ -66,7 +67,7 @@ const ACCORDION = [
       ["OBSERVACIÓN", "Se registra solo lo que realmente se ve"],
       ["RELATO", "Una historia para escuchar, sin datos inventados"],
     ],
-    features: ["Adjuntá hasta 3 imágenes", "Largo corto, medio o largo", "Escuchalo con voz de OpenAI"],
+    features: ["Adjuntá hasta 3 imágenes", "Nivel de detalle: normal, detallada o muy detallada", "Escuchalo con voz de OpenAI"],
   },
 ];
 
@@ -314,6 +315,7 @@ function setAccordionState(item, open) {
 function clearConversation() {
   history = [];
   pendingImages = [];
+  lastImages = [];
   renderAttachPreview();
   if (stopActiveAudio) stopActiveAudio();
   const stream = document.getElementById("conversation-stream");
@@ -750,8 +752,13 @@ async function handleSendMessage() {
   const sendBtn = document.getElementById("btn-send");
   if (!input || isSending) return;
   const text = input.value.trim();
-  const images = currentMode === "imagine" ? pendingImages.slice() : [];
+  const freshImages = currentMode === "imagine" ? pendingImages.slice() : [];
+  // Si el modelo hizo una pregunta previa (nivel de detalle / registro) y el usuario
+  // responde solo con texto, reenviamos la imagen para que el modelo siga viéndola.
+  const reusedImages = currentMode === "imagine" && !freshImages.length && text ? lastImages.slice() : [];
+  const images = freshImages.length ? freshImages : reusedImages;
   if (!text && !images.length) return;
+  if (freshImages.length) lastImages = freshImages;
 
   const emptyState = document.getElementById("empty-state-view");
   const stream = document.getElementById("conversation-stream");
@@ -762,10 +769,10 @@ async function handleSendMessage() {
   const userNode = document.createElement("div");
   userNode.className = "msg-in pl-4 border-l border-on-surface/30";
   userNode.innerHTML = `
-    <div class="text-[11px] uppercase tracking-wider text-outline mb-1 font-medium">${images.length ? "Imagen y pedido" : "Interrogante"}</div>
+    <div class="text-[11px] uppercase tracking-wider text-outline mb-1 font-medium">${freshImages.length ? "Imagen y pedido" : "Interrogante"}</div>
     ${
-      images.length
-        ? `<div class="flex flex-wrap gap-3 mb-2">${images
+      freshImages.length
+        ? `<div class="flex flex-wrap gap-3 mb-2">${freshImages
             .map((s, n) => `<img alt="Imagen enviada ${n + 1}" class="h-28 max-w-[220px] object-cover border border-border-subtle" src="${s}" />`)
             .join("")}</div>`
         : ""
@@ -821,7 +828,7 @@ async function handleSendMessage() {
       resp.scrollIntoView({ behavior: "smooth", block: "end" });
     }
 
-    history.push({ role: "user", content: [text, images.length ? `[${images.length} imagen(es) adjunta(s)]` : ""].filter(Boolean).join(" ") });
+    history.push({ role: "user", content: [text, freshImages.length ? `[${freshImages.length} imagen(es) adjunta(s)]` : ""].filter(Boolean).join(" ") });
     history.push({ role: "assistant", content: data.answer });
   } catch (err) {
     removeThinkingNode();
