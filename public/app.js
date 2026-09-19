@@ -121,6 +121,11 @@ function routeTo(viewName) {
     }
   });
 
+  if (targetId === "view-modules") {
+    const input = document.getElementById("user-input");
+    if (input) autoGrow(input);
+  }
+
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -713,7 +718,14 @@ function renderAttachPreview() {
 // ============================================================
 function autoGrow(el) {
   el.style.height = "auto";
-  el.style.height = Math.min(el.scrollHeight, 224) + "px";
+  const h = el.scrollHeight;
+  if (!h) {
+    el.style.height = "";
+    return;
+  }
+  const border = el.offsetHeight - el.clientHeight;
+  el.style.height = Math.min(h + border, 224) + "px";
+  el.style.overflowY = h > 224 ? "auto" : "hidden";
 }
 
 async function handleSendMessage() {
