@@ -325,6 +325,7 @@ function setAccordionState(item, open) {
 // CONVERSACIÓN
 // ============================================================
 function clearConversation() {
+  currentConvoId = null;
   history = [];
   pendingImages = [];
   lastImages = [];
@@ -859,6 +860,62 @@ function autoGrow(el) {
   el.style.overflowY = h > 224 ? "auto" : "hidden";
 }
 
+function buildUserNode({ text, images = [] }) {
+  const node = document.createElement("div");
+  node.className = "msg-in pl-4 border-l border-on-surface/30";
+  node.innerHTML = `
+    <div class="text-[11px] uppercase tracking-wider text-outline mb-1 font-medium">${images.length ? "Imagen y pedido" : "Interrogante"}</div>
+    ${
+      images.length
+        ? `<div class="flex flex-wrap gap-3 mb-2">${images
+            .map((src, n) => `<img alt="Imagen enviada ${n + 1}" class="h-28 max-w-[220px] object-cover border border-border-subtle" src="${src}" />`)
+            .join("")}</div>`
+        : ""
+    }
+    ${text ? `<p class="text-[17px] text-on-surface leading-snug font-medium whitespace-pre-wrap">${escapeHtml(text)}</p>` : ""}
+  `;
+  return node;
+}
+
+// animate = true: los bloques entran en secuencia. false: mensaje ya guardado, entra de una con un fundido.
+function buildAssistantNode(answer, animate) {
+  const resp = document.createElement("div");
+  resp.className = animate ? "space-y-4 pt-2" : "msg-in space-y-4 pt-2";
+  resp.innerHTML = `
+    <div class="flex items-center space-x-2 text-[13px] font-semibold text-on-surface uppercase tracking-wider">
+      <span>SECOND THOUGHT</span>
+    </div>
+    <div class="space-y-4 text-[15px] leading-relaxed text-on-surface" data-content>${renderRichText(answer)}</div>
+  `;
+  let idx = 0;
+  if (animate) {
+    idx = revealElements([resp.firstElementChild], 0);
+    idx = revealElements(revealTargets(resp.querySelector("[data-content]")), idx);
+  }
+  if (currentMode === "imagine") {
+    const listen = createListenControl(() => answer);
+    if (animate) revealElements([listen], idx);
+    resp.appendChild(listen);
+  }
+  return resp;
+}
+
+function makeThumb(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 160 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.width * k));
+      c.height = Math.max(1, Math.round(img.height * k));
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL("image/jpeg", 0.6));
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
 async function handleSendMessage() {
   const input = document.getElementById("user-input");
   const sendBtn = document.getElementById("btn-send");
@@ -878,20 +935,7 @@ async function handleSendMessage() {
   if (emptyState) emptyState.classList.add("hidden");
   if (stream) stream.classList.remove("hidden");
 
-  const userNode = document.createElement("div");
-  userNode.className = "msg-in pl-4 border-l border-on-surface/30";
-  userNode.innerHTML = `
-    <div class="text-[11px] uppercase tracking-wider text-outline mb-1 font-medium">${freshImages.length ? "Imagen y pedido" : "Interrogante"}</div>
-    ${
-      freshImages.length
-        ? `<div class="flex flex-wrap gap-3 mb-2">${freshImages
-            .map((s, n) => `<img alt="Imagen enviada ${n + 1}" class="h-28 max-w-[220px] object-cover border border-border-subtle" src="${s}" />`)
-            .join("")}</div>`
-        : ""
-    }
-    ${text ? `<p class="text-[17px] text-on-surface leading-snug font-medium whitespace-pre-wrap">${escapeHtml(text)}</p>` : ""}
-  `;
-  if (stream) stream.appendChild(userNode);
+  if (stream) stream.appendChild(buildUserNode({ text, images: freshImages }));
   input.value = "";
   autoGrow(input);
   pendingImages = [];
@@ -926,21 +970,7 @@ async function handleSendMessage() {
       throw new Error(data.error || (res.status === 413 ? "Las imágenes pesan demasiado. Probá con menos o más chicas." : "Error desconocido."));
     }
 
-    const resp = document.createElement("div");
-    resp.className = "space-y-4 pt-2";
-    resp.innerHTML = `
-      <div class="flex items-center space-x-2 text-[13px] font-semibold text-on-surface uppercase tracking-wider">
-        <span>SECOND THOUGHT</span>
-      </div>
-      <div class="space-y-4 text-[15px] leading-relaxed text-on-surface" data-content>${renderRichText(data.answer)}</div>
-    `;
-    let revealIdx = revealElements([resp.firstElementChild], 0);
-    revealIdx = revealElements(revealTargets(resp.querySelector("[data-content]")), revealIdx);
-    if (currentMode === "imagine") {
-      const listen = createListenControl(() => data.answer);
-      revealElements([listen], revealIdx);
-      resp.appendChild(listen);
-    }
+    const resp = buildAssistantNode(data.answer, true);
     if (stream) {
       stream.appendChild(resp);
       resp.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -948,6 +978,9 @@ async function handleSendMessage() {
 
     history.push({ role: "user", content: [text, freshImages.length ? `[${freshImages.length} imagen(es) adjunta(s)]` : ""].filter(Boolean).join(" ") });
     history.push({ role: "assistant", content: data.answer });
+
+    const thumbs = (await Promise.all(freshImages.map(makeThumb))).filter(Boolean);
+    persistExchange({ role: "user", text, thumbs }, data.answer);
   } catch (err) {
     removeThinkingNode();
     appendErrorNode(err.message || "No se pudo conectar con el servidor. Intentá de nuevo.");
@@ -960,12 +993,216 @@ async function handleSendMessage() {
 }
 
 // ============================================================
+// HISTORIAL (se guarda en este navegador, no en el servidor)
+// ============================================================
+const STORE_KEY = "st-history-v1";
+const MAX_CONVOS = 40;
+let currentConvoId = null;
+let lastFocusBeforeHistory = null;
+
+function readStore() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStore(list) {
+  let l = list.slice(0, MAX_CONVOS);
+  for (;;) {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(l));
+      return;
+    } catch {
+      if (l.length <= 1) return; // sin espacio o storage bloqueado: la app sigue funcionando sin guardar
+      l = l.slice(0, -1); // descartamos la conversación más antigua y reintentamos
+    }
+  }
+}
+
+function newId() {
+  return window.crypto?.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+// Título: el mensaje más largo entre los primeros tres del usuario (el primero suele ser un saludo o una orden corta).
+function makeTitle(messages) {
+  const users = messages.filter((m) => m.role === "user").slice(0, 3);
+  let best = null;
+  users.forEach((m) => {
+    if (!best || (m.text || "").length > (best.text || "").length) best = m;
+  });
+  const t = ((best && best.text) || "").replace(/\s+/g, " ").trim();
+  if (t) return t.length > 70 ? t.slice(0, 67) + "…" : t;
+  return users.some((m) => m.thumbs && m.thumbs.length) ? "Conversación con imagen" : "Conversación";
+}
+
+function persistExchange(userMsg, answer) {
+  const now = Date.now();
+  const list = readStore();
+  let convo = list.find((c) => c.id === currentConvoId);
+  if (convo) {
+    list.splice(list.indexOf(convo), 1);
+  } else {
+    convo = { id: newId(), mode: currentMode, title: "", createdAt: now, updatedAt: now, messages: [] };
+    currentConvoId = convo.id;
+  }
+  convo.messages.push(userMsg, { role: "assistant", text: answer });
+  convo.title = makeTitle(convo.messages);
+  convo.updatedAt = now;
+  list.unshift(convo);
+  writeStore(list);
+  refreshHistoryUI();
+}
+
+function relativeTime(ts) {
+  const diff = Date.now() - ts;
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "hace un momento";
+  if (min < 60) return "hace " + min + " min";
+  const hrs = Math.floor(min / 60);
+  if (hrs < 24) return "hace " + hrs + (hrs === 1 ? " hora" : " horas");
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return "ayer";
+  if (days < 7) return "hace " + days + " días";
+  return new Date(ts).toLocaleDateString("es-UY", { day: "numeric", month: "short" });
+}
+
+function renderHistoryList() {
+  const box = document.getElementById("history-list");
+  if (!box) return;
+  const list = readStore();
+  if (!list.length) {
+    box.innerHTML =
+      '<p class="px-5 py-8 text-[13px] leading-relaxed text-on-surface-variant">Todavía no hay conversaciones. Las que tengas se guardan acá para que puedas retomarlas.</p>';
+    return;
+  }
+  box.innerHTML = list
+    .map((c, i) => {
+      const meta = MODES[c.mode] || { code: "", title: "" };
+      return (
+        '<div class="history-item relative' + (c.id === currentConvoId ? " is-current" : "") + '" data-id="' + escapeHtml(c.id) + '" style="--i:' + Math.min(i, 12) + '">' +
+        '<button class="history-row w-full text-left px-5 py-3.5 cursor-pointer" data-open="' + escapeHtml(c.id) + '" type="button">' +
+        '<div class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-outline"><span>' + escapeHtml(meta.code + " · " + meta.title) + "</span><span>·</span><span>" + relativeTime(c.updatedAt) + "</span></div>" +
+        '<div class="mt-1 pr-8 text-[14px] leading-snug text-on-surface line-clamp-2">' + escapeHtml(c.title || "Conversación") + "</div>" +
+        "</button>" +
+        '<button aria-label="Eliminar conversación" class="history-del absolute right-3 top-3.5 h-6 w-6 text-[18px] leading-none text-on-surface-variant hover:text-on-surface cursor-pointer" data-del="' + escapeHtml(c.id) + '" type="button">×</button>' +
+        "</div>"
+      );
+    })
+    .join("");
+}
+
+function refreshHistoryUI() {
+  const n = readStore().length;
+  document.querySelectorAll(".history-count").forEach((el) => {
+    el.textContent = n ? "(" + n + ")" : "";
+  });
+  if (document.getElementById("history-drawer")?.classList.contains("is-open")) renderHistoryList();
+}
+
+function setHistoryOpen(open) {
+  const drawer = document.getElementById("history-drawer");
+  const panel = drawer?.querySelector(".history-panel");
+  if (!drawer || !panel) return;
+  if (open) {
+    lastFocusBeforeHistory = document.activeElement;
+    renderHistoryList();
+    panel.inert = false;
+    drawer.setAttribute("aria-hidden", "false");
+    drawer.classList.add("is-open");
+    setTimeout(() => panel.querySelector("[data-close-history]")?.focus({ preventScroll: true }), 60);
+  } else {
+    drawer.classList.remove("is-open");
+    drawer.setAttribute("aria-hidden", "true");
+    panel.inert = true;
+    lastFocusBeforeHistory?.focus?.({ preventScroll: true });
+  }
+}
+
+function openConversation(id) {
+  const convo = readStore().find((c) => c.id === id);
+  if (!convo) return;
+  if (stopActiveAudio) stopActiveAudio();
+  setMode(convo.mode); // limpia la pantalla y deja el modo listo
+  routeTo("modules");
+  currentConvoId = convo.id;
+  history = convo.messages.map((m) => ({
+    role: m.role,
+    content: m.role === "user" ? [m.text, m.thumbs && m.thumbs.length ? "[imagen adjunta]" : ""].filter(Boolean).join(" ") : m.text,
+  }));
+
+  const emptyState = document.getElementById("empty-state-view");
+  const stream = document.getElementById("conversation-stream");
+  if (emptyState) emptyState.classList.add("hidden");
+  if (stream) {
+    stream.classList.remove("hidden");
+    stream.innerHTML = "";
+    convo.messages.forEach((m) => {
+      stream.appendChild(m.role === "user" ? buildUserNode({ text: m.text, images: m.thumbs || [] }) : buildAssistantNode(m.text, false));
+    });
+  }
+  setHistoryOpen(false);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function deleteConversation(id) {
+  const item = document.querySelector('.history-item[data-id="' + CSS.escape(id) + '"]');
+  const finish = () => {
+    writeStore(readStore().filter((c) => c.id !== id));
+    if (currentConvoId === id) currentConvoId = null;
+    refreshHistoryUI();
+    renderHistoryList();
+  };
+  if (item) {
+    item.classList.add("is-removing");
+    setTimeout(finish, 300);
+  } else {
+    finish();
+  }
+}
+
+function initHistory() {
+  document.querySelectorAll("[data-open-history]").forEach((b) => b.addEventListener("click", () => setHistoryOpen(true)));
+  document.querySelectorAll("[data-close-history]").forEach((b) => b.addEventListener("click", () => setHistoryOpen(false)));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.getElementById("history-drawer")?.classList.contains("is-open")) setHistoryOpen(false);
+  });
+  document.getElementById("history-list")?.addEventListener("click", (e) => {
+    const del = e.target.closest("[data-del]");
+    if (del) {
+      deleteConversation(del.dataset.del);
+      return;
+    }
+    const open = e.target.closest("[data-open]");
+    if (open) openConversation(open.dataset.open);
+  });
+  document.getElementById("history-new")?.addEventListener("click", () => {
+    setHistoryOpen(false);
+    if (currentRoute === "modules") clearConversation();
+    else routeTo("selector");
+  });
+  document.getElementById("history-clear-all")?.addEventListener("click", () => {
+    if (!readStore().length) return;
+    if (confirm("¿Borrar todo el historial de este navegador? No se puede deshacer.")) {
+      writeStore([]);
+      currentConvoId = null;
+      refreshHistoryUI();
+      renderHistoryList();
+    }
+  });
+  refreshHistoryUI();
+}
+
+// ============================================================
 // INICIALIZACIÓN
 // ============================================================
 document.addEventListener("DOMContentLoaded", () => {
   loadModes();
   renderAccordion();
   initVoicePicker();
+  initHistory();
 
   const loginForm = document.getElementById("login-form");
   if (loginForm) loginForm.addEventListener("submit", handleLoginSubmit);

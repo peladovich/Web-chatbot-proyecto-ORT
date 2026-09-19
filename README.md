@@ -1,103 +1,103 @@
-# Second Thought
+﻿# Second Thought
 
-Espacio de pensamiento con 3 modos — **Cuestionar**, **Resolver**, **Imaginar** —
-conectados en vivo a la API de OpenAI. Diseño basado en el export de Google
+Espacio de pensamiento con 3 modos â€” **Cuestionar**, **Resolver**, **Imaginar** â€”
+conectados en vivo a la API de OpenAI. DiseÃ±o basado en el export de Google
 Stitch (`design/`), implementado con Node.js + Express.
 
-## 🧩 Cómo funciona
+## ðŸ§© CÃ³mo funciona
 
-1. Entrás con cualquier usuario/contraseña no vacíos (el login es una puerta
-   temática, no autenticación real — ver nota abajo).
-2. Elegís uno de los 3 modos en el selector.
-3. Escribís tu mensaje. El frontend manda `{ mode, userInput, history }` al backend.
+1. EntrÃ¡s con cualquier usuario/contraseÃ±a no vacÃ­os (el login es una puerta
+   temÃ¡tica, no autenticaciÃ³n real â€” ver nota abajo).
+2. ElegÃ­s uno de los 3 modos en el selector.
+3. EscribÃ­s tu mensaje. El frontend manda `{ mode, userInput, history }` al backend.
 4. El backend arma el mensaje real (`system prompt` del modo + historial + tu
    mensaje) y llama a la API de OpenAI **usando tu clave, que nunca se expone
    al navegador**.
-5. La respuesta aparece en el flujo de conversación, con memoria real
-   (multi-turno) mientras te quedás en el mismo modo.
+5. La respuesta aparece en el flujo de conversaciÃ³n, con memoria real
+   (multi-turno) mientras te quedÃ¡s en el mismo modo.
 
-## 🚀 Cómo correrlo en tu compu
+## ðŸš€ CÃ³mo correrlo en tu compu
 
-1. Instalá [Node.js](https://nodejs.org/) (versión 18 o superior).
-2. Instalá las dependencias:
+1. InstalÃ¡ [Node.js](https://nodejs.org/) (versiÃ³n 18 o superior).
+2. InstalÃ¡ las dependencias:
    ```bash
    npm install
    ```
-3. Copiá `.env.example` a `.env` y pegá tu clave de OpenAI:
+3. CopiÃ¡ `.env.example` a `.env` y pegÃ¡ tu clave de OpenAI:
    ```bash
    cp .env.example .env
    ```
-4. Arrancá el servidor:
+4. ArrancÃ¡ el servidor:
    ```bash
    npm start
    ```
-5. Abrí http://localhost:3000
+5. AbrÃ­ http://localhost:3000
 
-Sin `.env`, el sitio funciona igual (diseño, navegación, login, el ejemplo
+Sin `.env`, el sitio funciona igual (diseÃ±o, navegaciÃ³n, login, el ejemplo
 fijo de cada modo) pero `/api/generate` devuelve un error controlado hasta
 que cargues la clave real.
 
-## ✏️ Cómo editar los 3 modos
+## âœï¸ CÃ³mo editar los 3 modos
 
 Los prompts reales viven, tal cual fueron escritos, en la carpeta `prompts/`
 (`question.txt`, `solve.txt`, `imagine.txt`). Para cambiar el comportamiento de
-un modo, editá ese archivo. `modes.js` los carga y define los textos de interfaz
+un modo, editÃ¡ ese archivo. `modes.js` los carga y define los textos de interfaz
 de cada modo (`title`, `eyebrow`, `heading`, `subtext`, `placeholder`).
 
-A diferencia de otros proyectos similares, acá **el `systemPrompt` nunca se
-manda al navegador** — `/api/modes` solo expone los textos de UI.
+A diferencia de otros proyectos similares, acÃ¡ **el `systemPrompt` nunca se
+manda al navegador** â€” `/api/modes` solo expone los textos de UI.
 
 No hace falta tocar `server.js`, `public/index.html` ni `public/app.js` para
 cambiar el contenido de los modos.
 
-## 🖼️ Imágenes y 🔊 voz
+## ðŸ–¼ï¸ ImÃ¡genes y ðŸ”Š voz
 
-- **Imaginar** acepta hasta 3 imágenes por mensaje (botón, arrastrar o pegar).
+- **Imaginar** acepta hasta 3 imÃ¡genes por mensaje (botÃ³n, arrastrar o pegar).
   Se reducen en el navegador antes de enviarse.
-- Cada respuesta tiene un botón **Escuchar** que usa el texto a voz de OpenAI
-  (`gpt-4o-mini-tts`) vía `/api/tts`. La voz se elige en la zona de entrada.
+- Cada respuesta tiene un botÃ³n **Escuchar** que usa el texto a voz de OpenAI
+  (`gpt-4o-mini-tts`) vÃ­a `/api/tts`. La voz se elige en la zona de entrada.
 
 
-## 🔐 Sobre el login
+## ðŸ” Sobre el login
 
-El formulario de acceso acepta cualquier usuario/contraseña no vacíos — es
+El formulario de acceso acepta cualquier usuario/contraseÃ±a no vacÃ­os â€” es
 parte de la experiencia narrativa del producto ("acceder" al espacio de
-pensamiento), no un control de seguridad real. Si en algún momento necesitás
+pensamiento), no un control de seguridad real. Si en algÃºn momento necesitÃ¡s
 proteger el acceso de verdad (por ejemplo, para que no cualquiera use tu
-cuota de API), avisá y se agrega autenticación real en el backend.
+cuota de API), avisÃ¡ y se agrega autenticaciÃ³n real en el backend.
 
-## 🌐 Cómo desplegarlo gratis
+## ðŸŒ CÃ³mo desplegarlo gratis
 
-**Opción recomendada: [Render](https://render.com)**
-1. Subí el proyecto a un repositorio de GitHub (`.env` está en `.gitignore`).
-2. En Render: "New" → "Web Service" → conectá tu repo.
-3. Build command: `npm install` — Start command: `npm start`.
-4. En "Environment", agregá `OPENAI_API_KEY` con tu clave real.
+**OpciÃ³n recomendada: [Render](https://render.com)**
+1. SubÃ­ el proyecto a un repositorio de GitHub (`.env` estÃ¡ en `.gitignore`).
+2. En Render: "New" â†’ "Web Service" â†’ conectÃ¡ tu repo.
+3. Build command: `npm install` â€” Start command: `npm start`.
+4. En "Environment", agregÃ¡ `OPENAI_API_KEY` con tu clave real.
 5. Deploy.
 
-## 💸 Costos
+## ðŸ’¸ Costos
 
 Usa el modelo `gpt-5.6-luna` (configurado en `server.js`). Es un modelo de
 razonamiento: no acepta `temperature` personalizada (siempre 1) y usa
-`max_completion_tokens` en vez de `max_tokens`. Revisá el precio de este
+`max_completion_tokens` en vez de `max_tokens`. RevisÃ¡ el precio de este
 modelo en tu cuenta de OpenAI para estimar el costo real de uso.
 
-## 🔒 Seguridad ya incluida
+## ðŸ”’ Seguridad ya incluida
 
 - La API key vive solo en el servidor (`.env`), nunca en el navegador.
-- Límite de 15 peticiones por minuto por IP.
-- Límite de longitud del mensaje y del historial de conversación.
+- LÃ­mite de 15 peticiones por minuto por IP.
+- LÃ­mite de longitud del mensaje y del historial de conversaciÃ³n.
 
-## 📁 Estructura
+## ðŸ“ Estructura
 
 ```
 Proyecto ORT/
-├── server.js       # API Express (/api/modes, /api/generate, /api/tts)
-├── modes.js         # carga los prompts y define los textos de cada modo
-├── prompts/         # ← los 3 system prompts reales (question, solve, imagine)
-├── public/
-│   ├── index.html    # el diseño exportado de Stitch, tal cual
-│   └── app.js         # routing + conexión real al backend
-├── design/            # DESIGN.md y screenshot originales del export, de referencia
-└── README.md
+â”œâ”€â”€ server.js       # API Express (/api/modes, /api/generate, /api/tts)
+â”œâ”€â”€ modes.js         # carga los prompts y define los textos de cada modo
+â”œâ”€â”€ prompts/         # â† los 3 system prompts reales (question, solve, imagine)
+â”œâ”€â”€ public/
+â”‚   â”œâ”€â”€ index.html    # el diseÃ±o exportado de Stitch, tal cual
+â”‚   â””â”€â”€ app.js         # routing + conexiÃ³n real al backend
+â”œâ”€â”€ design/            # DESIGN.md y screenshot originales del export, de referencia
+â””â”€â”€ README.md
 ```

@@ -216,6 +216,32 @@
       to { opacity: 1; transform: translateY(0); filter: blur(0); }
     }
 
+    /* Historial */
+    .history-drawer { pointer-events: none; }
+    .history-drawer.is-open { pointer-events: auto; }
+    .history-backdrop { opacity: 0; transition: opacity 320ms ease; }
+    .history-drawer.is-open .history-backdrop { opacity: 1; }
+    .history-panel {
+      transform: translateX(-100%);
+      transition: transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 30px 0 60px -30px rgba(24, 24, 27, 0.35);
+    }
+    .history-drawer.is-open .history-panel { transform: translateX(0); }
+    .history-item { opacity: 0; transform: translateX(-10px); }
+    .history-drawer.is-open .history-item {
+      animation: historyIn 480ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: calc(var(--i, 0) * 45ms + 140ms);
+    }
+    @keyframes historyIn { to { opacity: 1; transform: translateX(0); } }
+    .history-item.is-removing { animation: historyOut 320ms cubic-bezier(0.16, 1, 0.3, 1) forwards !important; }
+    @keyframes historyOut { to { opacity: 0; transform: translateX(-24px); } }
+    .history-item .history-row { transition: background-color 180ms ease, padding-left 260ms cubic-bezier(0.16, 1, 0.3, 1); border-left: 2px solid transparent; }
+    .history-item .history-row:hover, .history-item .history-row:focus-visible { background-color: #F3F2EE; padding-left: 26px; outline: none; }
+    .history-item.is-current .history-row { border-left-color: #18181B; }
+    .history-item .history-del { opacity: 0; transition: opacity 160ms ease; }
+    .history-item:hover .history-del, .history-item:focus-within .history-del { opacity: 1; }
+    @media (hover: none) { .history-item .history-del { opacity: 0.6; } }
+
     /* Selector de voz */
     .voice-btn .voice-chevron {
       width: 6px; height: 6px;
@@ -259,7 +285,8 @@
     .rich-table td { border-bottom: 1px solid #E7E5E4; }
 
     @media (prefers-reduced-motion: reduce) {
-      .acc-panel, .acc-icon, .acc-rule, .msg-in, .thumb-in, .eq i, .voice-menu, .voice-option { animation: none !important; transition: none !important; }
+      .acc-panel, .acc-icon, .acc-rule, .msg-in, .thumb-in, .eq i, .voice-menu, .voice-option, .history-panel, .history-backdrop { animation: none !important; transition: none !important; }
+      .history-item { opacity: 1 !important; transform: none !important; animation: none !important; }
       .reveal-item { opacity: 1 !important; animation: none !important; filter: none !important; transform: none !important; }
       .acc-step, .acc-chip, .acc-enter { opacity: 1 !important; transform: none !important; animation: none !important; }
     }
@@ -423,9 +450,12 @@
 <span class="text-border-subtle">|</span>
 <span class="text-outline uppercase tracking-wider">SELECTOR</span>
 </div>
-<button class="text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-wider text-[11px] cursor-pointer" onclick="routeTo('inicio')" title="Cerrar sesión y volver al inicio" type="button">
+<div class="flex items-center gap-5">
+<button class="text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-wider text-[11px] cursor-pointer inline-flex items-center gap-1.5" data-open-history type="button">Historial<span class="history-count text-outline"></span></button>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-wider text-[11px] cursor-pointer" onclick="routeTo('inicio')" title="Volver al inicio" type="button">
           Inicio / Salir
         </button>
+</div>
 </header>
 <!-- Tres filas tipográficas puras con negative space y fine dividers -->
 <main class="w-full max-w-4xl mx-auto my-auto py-12">
@@ -480,6 +510,8 @@ SECOND THOUGHT
 <button class="py-1 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" id="nav-btn-imagine" onclick="setMode('imagine')" type="button">
 <span class="text-outline-variant mr-1">03</span> Imaginar
             </button>
+<span class="hidden sm:inline text-border-subtle">|</span>
+<button class="hidden sm:inline-flex items-center gap-1.5 py-1 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" data-open-history type="button">Historial<span class="history-count text-[11px] text-outline"></span></button>
 </nav>
 </div>
 </header>
@@ -549,8 +581,10 @@ SECOND THOUGHT
                   PROBAR UN EJEMPLO ↗
                 </button>
 <span class="text-border-subtle">·</span>
+<button class="hover:text-on-surface transition-colors cursor-pointer inline-flex items-center gap-1.5" data-open-history type="button">Historial<span class="history-count text-outline"></span></button>
+<span class="text-border-subtle">·</span>
 <button class="hover:text-on-surface transition-colors cursor-pointer" onclick="clearConversation()" type="button">
-                  Limpiar conversación
+                  Nueva conversación
                 </button>
 </div>
 </div>
@@ -644,6 +678,23 @@ Ir al Inicio
 <!-- ======================================================== -->
 <!-- SISTEMA DE CONTROL DE ESTADO, ROUTING Y CONVERSACIÓN     -->
 <!-- ======================================================== -->
+<div aria-hidden="true" class="history-drawer fixed inset-0 z-50" id="history-drawer">
+<div class="history-backdrop absolute inset-0 bg-on-surface/25" data-close-history></div>
+<aside aria-label="Historial de conversaciones" aria-modal="true" class="history-panel absolute left-0 top-0 h-full w-[88vw] max-w-[380px] bg-background border-r border-border-subtle flex flex-col" inert role="dialog">
+<div class="flex items-center justify-between px-5 pt-6 pb-4">
+<h2 class="text-[12px] uppercase tracking-[0.18em] font-semibold text-on-surface">Historial</h2>
+<button aria-label="Cerrar historial" class="text-[22px] leading-none text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" data-close-history type="button">×</button>
+</div>
+<div class="px-5 pb-4">
+<button class="btn-cross-underline inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider text-on-surface py-1.5 cursor-pointer" id="history-new" type="button"><span aria-hidden="true">+</span><span>Nueva conversación</span></button>
+</div>
+<div class="flex-1 overflow-y-auto border-t border-border-subtle" id="history-list"></div>
+<div class="px-5 py-4 border-t border-border-subtle flex items-center justify-between gap-4 text-[11px] text-outline">
+<span>Se guarda solo en este navegador.</span>
+<button class="uppercase tracking-wider font-medium hover:text-on-surface transition-colors cursor-pointer" id="history-clear-all" type="button">Borrar todo</button>
+</div>
+</aside>
+</div>
 <script src="app.js"></script>
 
 
