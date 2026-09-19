@@ -1,0 +1,636 @@
+<!DOCTYPE html><html class="h-full bg-background text-on-surface antialiased selection:bg-surface-container selection:text-on-surface" lang="es"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>SECOND THOUGHT — Espacio de Pensamiento y Conversación</title>
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400;1,500&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "background": "#FAF9F6",
+            "surface": "#FAF9F6",
+            "surface-subtle": "#F3F2EE",
+            "surface-container": "#EFEFEB",
+            "on-surface": "#18181B",
+            "on-surface-variant": "#52525B",
+            "outline": "#71717A",
+            "outline-variant": "#D4D2CD",
+            "border-subtle": "#E7E5E4",
+            "primary": "#18181B",
+            "accent": "#18181B"
+          },
+          fontFamily: {
+            sans: ["Instrument Sans", "sans-serif"],
+            body: ["Instrument Sans", "sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    * {
+      font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    }
+    
+    /* Sistema unificado de transiciones entre vistas */
+    .view-panel {
+      transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1), transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: opacity, transform;
+    }
+    .view-panel.is-hidden {
+      opacity: 0;
+      transform: translateY(6px);
+      pointer-events: none;
+      display: none !important;
+    }
+    .view-panel.is-active {
+      opacity: 1;
+      transform: translateY(0);
+      display: flex !important;
+    }
+
+    /* Secuencia tranquila de entrada en INICIO */
+    .seq-step-1 {
+      animation: tranquilFade 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .seq-step-2 {
+      opacity: 0;
+      animation: tranquilFade 600ms cubic-bezier(0.16, 1, 0.3, 1) 200ms forwards;
+    }
+    .seq-step-3 {
+      opacity: 0;
+      animation: tranquilFade 600ms cubic-bezier(0.16, 1, 0.3, 1) 380ms forwards;
+    }
+    @keyframes tranquilFade {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Microinteracciones botón editorial */
+    .btn-editorial .arrow-shift {
+      transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+      display: inline-block;
+    }
+    .btn-editorial:hover .arrow-shift {
+      transform: translateX(5px);
+    }
+    .btn-editorial .underline-mark {
+      transition: width 260ms cubic-bezier(0.16, 1, 0.3, 1);
+      width: 0%;
+    }
+    .btn-editorial:hover .underline-mark {
+      width: 100%;
+    }
+
+    /* CTAs principales (Empezar / Entrar): doble línea editorial que se
+       despliega en cruce desde extremos opuestos. El color es la terracota
+       reservada en design/DESIGN.md para "interactive underlines" — nunca
+       usada en el resto de la interfaz, así que aparece únicamente en el
+       hover de estos dos CTA y queda como una señal clara de interacción. */
+    .btn-cross-underline {
+      position: relative;
+    }
+    .btn-cross-underline::after,
+    .btn-cross-underline::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 1px;
+      background: #C2410C;
+      transform: scaleX(0);
+      transition: transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .btn-cross-underline::after {
+      bottom: -1px;
+      transform-origin: right;
+    }
+    .btn-cross-underline::before {
+      top: -1px;
+      transform-origin: left;
+    }
+    .btn-cross-underline:hover::after,
+    .btn-cross-underline:hover::before {
+      transform: scaleX(1);
+    }
+
+    /* Input focus labels & border transitions */
+    .editorial-field {
+      border-bottom: 1px solid #E7E5E4;
+      transition: border-color 220ms ease;
+    }
+    .editorial-field:focus-within {
+      border-bottom-color: #18181B;
+    }
+    .editorial-field label {
+      transition: color 200ms ease, transform 200ms ease;
+    }
+    .editorial-field:focus-within label {
+      color: #18181B;
+    }
+
+    /* Shake sutil para error en login */
+    .shake-error {
+      animation: microShake 350ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+    @keyframes microShake {
+      10%, 90% { transform: translate3d(-1.5px, 0, 0); }
+      20%, 80% { transform: translate3d(2px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-3px, 0, 0); }
+      40%, 60% { transform: translate3d(3px, 0, 0); }
+    }
+
+    /* Efecto bicapa de marca */
+    .title-second-thought {
+      position: relative;
+      display: inline-block;
+    }
+    .title-second-thought .layer-shadow {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.16;
+      transform: translate(0px, 0px);
+      transition: transform 450ms cubic-bezier(0.16, 1, 0.3, 1), opacity 450ms ease;
+      user-select: none;
+      pointer-events: none;
+    }
+    .title-second-thought:hover .layer-shadow {
+      transform: translate(3px, 3px);
+      opacity: 0.26;
+    }
+
+    /* Indicador de espera mínimo mientras llega la respuesta real */
+    .thinking-dots {
+      animation: thinkingPulse 1.1s ease-in-out infinite;
+    }
+    @keyframes thinkingPulse {
+      0%, 100% { opacity: 0.25; }
+      50% { opacity: 1; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .view-panel, .seq-step-1, .seq-step-2, .seq-step-3, .btn-editorial .arrow-shift, .btn-editorial .underline-mark, .shake-error, .title-second-thought .layer-shadow, .thinking-dots {
+        animation: none !important;
+        transition: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+      }
+      .btn-cross-underline::after,
+      .btn-cross-underline::before {
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between bg-background text-on-surface font-sans selection:bg-surface-container selection:text-on-surface">
+<!-- ======================================================== -->
+<!-- CONTENEDOR MAESTRO UNIFICADO DE VISTAS (SPA CONTINUA)   -->
+<!-- ======================================================== -->
+<div class="relative w-full min-h-screen flex flex-col justify-between" id="app-viewport">
+<!-- ======================================================== -->
+<!-- 01 · VISTA INICIO (ENTRADA TRANQUILA SECUENCIADA)         -->
+<!-- ======================================================== -->
+<section class="view-panel min-h-screen flex flex-col justify-between p-8 md:p-14 w-full is-hidden" id="view-inicio">
+<!-- Barra superior sobria -->
+<header class="w-full flex justify-between items-center text-[12px] tracking-[0.16em] uppercase text-on-surface-variant font-medium">
+<button class="hover:text-on-surface transition-colors cursor-pointer text-left uppercase" onclick="routeTo('inicio')" title="Inicio" type="button">
+          ESPACIO DE PENSAMIENTO
+        </button>
+<button class="hover:text-on-surface transition-colors cursor-pointer text-right uppercase" onclick="routeTo('login')" type="button">
+          ACCEDER ↗
+        </button>
+</header>
+<!-- Centro de la escena: Título, pregunta y botón -->
+<main class="w-full max-w-4xl mx-auto my-auto py-16 flex flex-col items-center text-center">
+<!-- Secuencia 1: Título de marca -->
+<div class="seq-step-1 mb-6">
+<button class="title-second-thought bg-transparent border-0 p-0 text-center cursor-pointer" onclick="routeTo('inicio')" type="button">
+<span aria-hidden="true" class="layer-shadow font-semibold text-4xl sm:text-6xl md:text-7xl tracking-[-0.03em] uppercase text-outline">
+              SECOND THOUGHT
+            </span>
+<h1 class="relative font-semibold text-4xl sm:text-6xl md:text-7xl tracking-[-0.03em] uppercase text-on-surface">
+              SECOND THOUGHT
+            </h1>
+</button>
+</div>
+<!-- Secuencia 2: Transición conceptual & Interrogante -->
+<div class="seq-step-2 flex flex-col items-center">
+<div class="flex items-center space-x-2 text-[12px] uppercase tracking-[0.18em] text-outline mb-4">
+<span class="">Primera idea</span>
+<span class="text-border-subtle">→</span>
+<span class="text-on-surface font-medium">Segunda mirada</span>
+</div>
+<p class="text-xl md:text-2xl text-on-surface-variant font-normal mb-10 max-w-md">
+            ¿Y si lo pensamos dos veces?
+          </p>
+</div>
+<!-- Secuencia 3: Botón editorial con avance fluido de flecha -->
+<div class="seq-step-3">
+<button class="btn-editorial btn-cross-underline inline-flex items-center text-on-surface font-semibold text-[14px] uppercase tracking-wider py-2 cursor-pointer" onclick="routeTo('login')" type="button">
+<span class="flex items-center space-x-2.5">
+<span class="">EMPEZAR</span>
+<span class="arrow-shift">→</span>
+</span>
+</button>
+</div>
+</main>
+<!-- Pie de página de Inicio con enlace a Manifiesto y firma -->
+<footer class="w-full flex justify-between items-center text-[12px] text-on-surface-variant">
+<button class="hover:text-on-surface transition-colors uppercase tracking-wider text-[12px] font-medium text-on-surface cursor-pointer inline-flex items-center space-x-1" onclick="routeTo('manifesto')" type="button">
+<span class="">Manifiesto</span>
+<span class="text-[10px]">↗</span>
+</button>
+<span class="uppercase tracking-widest text-[11px] text-outline font-medium select-none">YÑZ × CRDL — SECOND THOUGHT</span>
+</footer>
+</section>
+<!-- ======================================================== -->
+<!-- 02 · VISTA LOGIN (EDITORIAL Y VALIDADA)                  -->
+<!-- ======================================================== -->
+<section class="view-panel min-h-screen flex flex-col justify-between p-8 md:p-14 w-full is-active" id="view-login">
+<!-- Cabecera contextual -->
+<header class="w-full flex justify-between items-center text-[12px]">
+<div class="flex items-center space-x-4">
+<button class="text-on-surface-variant hover:text-on-surface transition-colors flex items-center space-x-1.5 uppercase tracking-wider cursor-pointer" onclick="routeTo('inicio')" title="Volver al inicio" type="button">
+<span class="">←</span>
+<span class="">Inicio</span>
+</button>
+<span class="text-border-subtle">|</span>
+<button class="font-semibold text-on-surface uppercase tracking-wider hover:opacity-75 transition-opacity cursor-pointer text-left" onclick="routeTo('inicio')" type="button">
+            SECOND THOUGHT
+          </button>
+</div>
+<span class="text-[12px] uppercase tracking-[0.16em] text-outline">ACCESO</span>
+</header>
+<!-- Formulario de acceso sobrio -->
+<main class="w-full max-w-md mx-auto my-auto py-12">
+<div class="mb-10 text-left">
+<button class="text-[12px] font-semibold tracking-wider text-outline uppercase mb-2 hover:text-on-surface transition-colors cursor-pointer block text-left" onclick="routeTo('inicio')" type="button">
+            SECOND THOUGHT
+          </button>
+<h2 class="text-3xl font-semibold tracking-tight text-on-surface">
+            INICIAR SESIÓN
+          </h2>
+</div>
+<form class="space-y-7" id="login-form" onsubmit="handleLoginSubmit(event)">
+<!-- Campo Usuario -->
+<div class="editorial-field space-y-1.5 text-left pb-1">
+<label class="block text-[11px] uppercase tracking-wider text-outline font-medium" for="login-username">
+              Usuario
+            </label>
+<input autocomplete="username" class="w-full bg-transparent border-0 px-0 py-1 text-[16px] text-on-surface focus:ring-0 focus:outline-none placeholder:text-outline-variant font-medium" id="login-username" required="" type="text" value="challenge">
+</div>
+<!-- Campo Contraseña -->
+<div class="editorial-field space-y-1.5 text-left pb-1">
+<label class="block text-[11px] uppercase tracking-wider text-outline font-medium" for="login-password">
+              Contraseña
+            </label>
+<input autocomplete="current-password" class="w-full bg-transparent border-0 px-0 py-1 text-[16px] text-on-surface focus:ring-0 focus:outline-none placeholder:text-outline-variant font-medium tracking-widest" id="login-password" required="" type="password" value="secondthought">
+</div>
+<!-- Mensaje de error discreto / nota demo -->
+<div class="pt-1 flex items-center justify-between text-[11px]">
+<span class="uppercase tracking-widest text-outline font-medium" id="login-feedback">ACCEDIENDO AL SELECTOR...</span>
+</div>
+<!-- Botón de envío editorial -->
+<div class="pt-4">
+<button class="btn-editorial btn-cross-underline w-full py-3.5 flex items-center text-on-surface cursor-pointer" id="btn-login-submit" onclick="handleLoginSubmit(event)" style="opacity: 1;" type="submit">
+<span class="w-full flex items-center justify-between text-[14px] font-semibold tracking-wider uppercase" id="login-btn-container">
+<span class="" id="login-btn-text">ENTRAR</span>
+<span class="arrow-shift text-[16px] ml-1" id="login-btn-arrow">→</span>
+</span>
+</button>
+</div>
+</form>
+</main>
+<!-- Pie de login -->
+<footer class="w-full flex justify-between items-center text-[12px] text-on-surface-variant">
+<button class="hover:text-on-surface transition-colors uppercase tracking-wider text-[12px] font-medium text-on-surface cursor-pointer inline-flex items-center space-x-1" onclick="routeTo('manifesto')" type="button">
+<span class="">Manifiesto</span>
+<span class="text-[10px]">↗</span>
+</button>
+<span class="uppercase tracking-widest text-[11px] text-outline font-medium select-none">YÑZ × CRDL — SECOND THOUGHT</span>
+</footer>
+</section>
+<!-- ======================================================== -->
+<!-- 03 · SELECTOR DE PROMPTS Y EXPERIENCIAS                 -->
+<!-- ======================================================== -->
+<section class="view-panel min-h-screen flex flex-col justify-between p-8 md:p-14 w-full is-hidden" id="view-selector">
+<!-- Navegación superior -->
+<header class="w-full flex justify-between items-center text-[12px]">
+<div class="flex items-center space-x-3">
+<button class="text-on-surface-variant hover:text-on-surface transition-colors flex items-center space-x-1.5 uppercase tracking-wider cursor-pointer" onclick="routeTo('inicio')" title="Volver al inicio" type="button">
+<span class="">←</span>
+<span class="">Inicio</span>
+</button>
+<span class="text-border-subtle">|</span>
+<button class="font-semibold text-on-surface uppercase tracking-wider hover:opacity-75 transition-opacity cursor-pointer text-left" onclick="routeTo('inicio')" title="Ir al inicio" type="button">
+            SECOND THOUGHT
+          </button>
+<span class="text-border-subtle">|</span>
+<span class="text-outline uppercase tracking-wider">SELECTOR</span>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-wider text-[11px] cursor-pointer" onclick="routeTo('inicio')" title="Cerrar sesión y volver al inicio" type="button">
+          Inicio / Salir
+        </button>
+</header>
+<!-- Tres filas tipográficas puras con negative space y fine dividers -->
+<main class="w-full max-w-4xl mx-auto my-auto py-12">
+<div class="mb-12 text-center sm:text-left">
+<div class="text-[12px] tracking-[0.18em] uppercase text-outline font-medium mb-3">
+            EXPERIENCIAS DE ATENCIÓN
+          </div>
+<h2 class="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-on-surface">
+            ¿QUÉ QUERÉS PENSAR DOS VECES?
+          </h2>
+</div>
+<div class="divide-y divide-border-subtle border-t border-b border-border-subtle">
+<!-- 01 CUESTIONAR -->
+<div class="group py-7 sm:py-9 cursor-pointer transition-colors hover:bg-surface-subtle/50 px-2 sm:px-4" onclick="routeToModule('question')">
+<div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
+<div class="flex items-baseline space-x-4">
+<span class="text-[14px] font-mono text-outline">01</span>
+<h3 class="text-2xl sm:text-3xl font-semibold tracking-tight text-on-surface group-hover:underline underline-offset-8 decoration-1 decoration-outline">
+                  CUESTIONAR
+                </h3>
+</div>
+<span class="text-[13px] text-on-surface font-medium uppercase tracking-wider inline-flex items-center space-x-1 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="">Explorar</span>
+<span class="arrow-shift">↗</span>
+</span>
+</div>
+<p class="text-[14px] text-on-surface-variant mt-2 pl-9 max-w-xl">
+              Examen crítico de premisas, sesgos cognitivos y afirmaciones cotidianas con contraste documental verificable.
+            </p>
+<!-- Progresión al hover: "El agua con limón elimina las toxinas." ↓ "¿Qué evidencia lo respalda?" -->
+<div class="pl-9 mt-4 max-h-0 overflow-hidden group-hover:max-h-20 transition-all duration-300 ease-in-out text-[13px] text-outline flex flex-col space-y-1">
+<div class="flex items-center space-x-2">
+<span class="line-through text-outline/70 font-mono">"El agua con limón elimina las toxinas."</span>
+</div>
+<div class="flex items-center space-x-2 pl-4">
+<span class="text-on-surface font-mono">↓</span>
+<span class="text-on-surface font-medium italic">"¿Qué evidencia lo respalda?"</span>
+</div>
+</div>
+</div>
+<!-- 02 RESOLVER -->
+<div class="group py-7 sm:py-9 cursor-pointer transition-colors hover:bg-surface-subtle/50 px-2 sm:px-4" onclick="routeToModule('solve')">
+<div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
+<div class="flex items-baseline space-x-4">
+<span class="text-[14px] font-mono text-outline">02</span>
+<h3 class="text-2xl sm:text-3xl font-semibold tracking-tight text-on-surface group-hover:underline underline-offset-8 decoration-1 decoration-outline">
+                  RESOLVER
+                </h3>
+</div>
+<span class="text-[13px] text-on-surface font-medium uppercase tracking-wider inline-flex items-center space-x-1 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="">Explorar</span>
+<span class="arrow-shift">↗</span>
+</span>
+</div>
+<p class="text-[14px] text-on-surface-variant mt-2 pl-9 max-w-xl">
+              Descomposición deductiva paso a paso de problemas físicos, cinemáticos y matemáticos rigurosos.
+            </p>
+<!-- Progresión matemática al hover: "2x + 6 = 14" ↓ "2x = 8" ↓ "x = 4" -->
+<div class="pl-9 mt-4 max-h-0 overflow-hidden group-hover:max-h-20 transition-all duration-300 ease-in-out text-[13px] text-outline font-mono flex flex-col space-y-1">
+<span class="">2x + 6 = 14</span>
+<div class="flex items-center space-x-2 pl-3">
+<span class="text-on-surface">↓</span>
+<span class="">2x = 8</span>
+</div>
+<div class="flex items-center space-x-2 pl-6">
+<span class="text-on-surface">↓</span>
+<span class="text-on-surface font-semibold">x = 4</span>
+</div>
+</div>
+</div>
+<!-- 03 IMAGINAR -->
+<div class="group py-7 sm:py-9 cursor-pointer transition-colors hover:bg-surface-subtle/50 px-2 sm:px-4" onclick="routeToModule('imagine')">
+<div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
+<div class="flex items-baseline space-x-4">
+<span class="text-[14px] font-mono text-outline">03</span>
+<h3 class="text-2xl sm:text-3xl font-semibold tracking-tight text-on-surface group-hover:underline underline-offset-8 decoration-1 decoration-outline">
+                  IMAGINAR
+                </h3>
+</div>
+<span class="text-[13px] text-on-surface font-medium uppercase tracking-wider inline-flex items-center space-x-1 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="">Explorar</span>
+<span class="arrow-shift">↗</span>
+</span>
+</div>
+<p class="text-[14px] text-on-surface-variant mt-2 pl-9 max-w-xl">
+              Prosa literaria atenta y desarrollo conceptual a partir de atmósferas y fotografía en blanco y negro.
+            </p>
+<!-- Progresión narrativa al hover: "IMAGEN" ↓ "OBSERVACIÓN" ↓ "HISTORIA" -->
+<div class="pl-9 mt-4 max-h-0 overflow-hidden group-hover:max-h-20 transition-all duration-300 ease-in-out text-[12px] text-outline uppercase tracking-wider font-medium flex flex-col space-y-1">
+<span class="">IMAGEN (Andén en penumbra)</span>
+<div class="flex items-center space-x-2 pl-3">
+<span class="text-on-surface">↓</span>
+<span class="">OBSERVACIÓN (Silencio y vapor frío)</span>
+</div>
+<div class="flex items-center space-x-2 pl-6">
+<span class="text-on-surface">↓</span>
+<span class="text-on-surface font-semibold">HISTORIA ("Elena no miraba el reloj...")</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Pie del selector -->
+<footer class="w-full flex justify-between items-center text-[12px] text-on-surface-variant">
+<button class="hover:text-on-surface transition-colors uppercase tracking-wider text-[12px] font-medium text-on-surface cursor-pointer inline-flex items-center space-x-1" onclick="routeTo('manifesto')" type="button">
+<span class="">Manifiesto</span>
+<span class="text-[10px]">↗</span>
+</button>
+<span class="uppercase tracking-widest text-[11px] text-outline font-medium select-none">YÑZ × CRDL — SECOND THOUGHT</span>
+</footer>
+</section>
+<!-- ======================================================== -->
+<!-- 04 · MÓDULOS DE CONVERSACIÓN RIGUROSA (SPA CONTINUA)      -->
+<!-- ======================================================== -->
+<div class="view-panel min-h-screen flex-col justify-between w-full is-hidden" id="view-modules">
+<!-- Header Superior Mínimo y de Retorno -->
+<header class="w-full bg-background border-b border-border-subtle z-20">
+<div class="max-w-6xl mx-auto px-6 md:px-12 py-5 flex items-center justify-between">
+<div class="flex items-center space-x-3 sm:space-x-5"><button class="text-on-surface-variant hover:text-on-surface transition-colors flex items-center space-x-1.5 text-[13px] uppercase tracking-wider cursor-pointer" onclick="routeTo('selector')" title="Volver al selector" type="button">
+<span class="">←</span>
+<span class="">Volver</span>
+</button>
+<span class="text-border-subtle">|</span>
+<button class="text-[14px] font-semibold tracking-wider text-on-surface uppercase hover:opacity-75 transition-opacity text-left cursor-pointer" onclick="routeTo('inicio')" title="Ir al inicio" type="button">
+SECOND THOUGHT
+</button>
+<span class="text-border-subtle hidden md:inline">|</span>
+<div class="hidden md:flex items-center space-x-1.5 text-[12px] tracking-wide text-on-surface-variant uppercase font-medium">
+<span class="" id="header-mode-code">02</span>
+<span class="">·</span>
+<span class="" id="header-mode-title">RESOLVER</span>
+</div></div>
+<!-- Selector directo de pestañas de módulo -->
+<nav aria-label="Selector de Modo" class="flex items-center space-x-3 sm:space-x-6 text-[13px]">
+<button class="py-1 text-on-surface font-semibold border-b border-on-surface transition-colors cursor-pointer" id="nav-btn-question" onclick="setMode('question')" type="button">
+<span class="text-outline-variant mr-1">01</span> Cuestionar
+            </button>
+<button class="py-1 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" id="nav-btn-solve" onclick="setMode('solve')" type="button">
+<span class="text-outline mr-1">02</span> Resolver
+            </button>
+<button class="py-1 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" id="nav-btn-imagine" onclick="setMode('imagine')" type="button">
+<span class="text-outline-variant mr-1">03</span> Imaginar
+            </button>
+</nav>
+</div>
+</header>
+<!-- Lienzo de Contenido Editorial -->
+<main class="flex-1 w-full max-w-4xl mx-auto px-6 md:px-8 py-10 md:py-14 flex flex-col justify-between">
+<div class="w-full flex-1 flex flex-col justify-between">
+<!-- Contenedor del Módulo Activo -->
+<div class="w-full flex-1 flex flex-col justify-center" id="module-active-container">
+<!-- Estado Vacío Contextual del Módulo -->
+<div class="py-8 md:py-12 transition-opacity duration-200" id="empty-state-view">
+<div class="text-[12px] tracking-[0.16em] uppercase text-on-surface-variant mb-4 font-medium" id="empty-mode-trace">AFIRMAR → CUESTIONAR → COMPROBAR</div>
+<h1 class="text-3xl md:text-4xl font-semibold tracking-tight text-on-surface mb-4" id="empty-mode-heading">¿Qué certeza querés poner a prueba?</h1>
+<p class="text-[16px] leading-relaxed text-on-surface-variant max-w-xl mb-8" id="empty-mode-subtext">Examinamos la consistencia de afirmaciones, sesgos cognitivos y premisas de conocimiento cotidiano sin dogmas.</p>
+<div>
+<button class="inline-flex items-center space-x-1.5 text-[13px] font-semibold text-on-surface uppercase tracking-wider hover:opacity-60 transition-opacity border-b border-on-surface/40 pb-0.5 cursor-pointer" onclick="loadExampleScenario()" type="button">
+<span class="">PROBAR UN EJEMPLO</span>
+<span class="arrow-shift">↗</span>
+</button>
+</div>
+</div>
+<!-- Flujo de Conversación y Análisis Editorial -->
+<div class="space-y-10 py-4 hidden" id="conversation-stream"></div>
+</div>
+<!-- Zona Inferior de Entrada (Línea Mínima y Pura) -->
+<div class="w-full pt-8 pb-4 border-t border-border-subtle mt-10" id="input-zone">
+<!-- Contexto opcional para Modo Imaginar -->
+<div class="mb-3 text-[12px] text-on-surface-variant flex items-center justify-between hidden" id="imagine-inline-bar">
+<span class="">Referencia activa: Andén de estación en penumbra</span>
+<button class="hover:text-on-surface underline underline-offset-4 decoration-border-subtle cursor-pointer" onclick="swapImageContext()" type="button">
+                Cambiar imagen de referencia
+              </button>
+</div>
+<!-- Campo de texto sobrio -->
+<div class="relative flex items-center justify-between gap-4">
+<input autocomplete="off" class="w-full bg-transparent border-0 border-b border-transparent focus:border-on-surface focus:ring-0 px-0 py-2.5 text-[16px] text-on-surface placeholder:text-outline/60 focus:outline-none transition-colors" id="user-input" placeholder="Escribí una creencia, afirmación o mito para examinar..." type="text">
+<button aria-label="Enviar" class="text-on-surface hover:opacity-60 transition-opacity text-[18px] px-2 py-1 cursor-pointer font-medium" id="btn-send" onclick="handleSendMessage()" type="button">
+                ↗
+              </button>
+</div>
+<!-- Acciones de soporte textuales -->
+<div class="mt-3 flex flex-wrap items-center justify-between text-[12px] text-on-surface-variant gap-3">
+<span class="text-outline">Presioná Enter ↵ para enviar</span>
+<div class="flex items-center space-x-5">
+<button class="hover:text-on-surface transition-colors uppercase font-medium tracking-wide cursor-pointer" onclick="loadExampleScenario()" type="button">
+                  PROBAR UN EJEMPLO ↗
+                </button>
+<span class="text-border-subtle">·</span>
+<button class="hover:text-on-surface transition-colors cursor-pointer" onclick="clearConversation()" type="button">
+                  Limpiar conversación
+                </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Sobrio y Discreto modificado: Manifiesto a la izquierda y firma YÑZ × CRDL — SECOND THOUGHT -->
+<footer class="w-full bg-background border-t border-border-subtle py-5">
+<div class="max-w-6xl mx-auto px-6 md:px-12 flex justify-between items-center text-[12px] text-on-surface-variant">
+<button class="hover:text-on-surface transition-colors uppercase tracking-wider text-[12px] font-medium text-on-surface cursor-pointer inline-flex items-center space-x-1" onclick="routeTo('manifesto')" type="button">
+<span class="">Manifiesto</span>
+<span class="text-[10px]">↗</span>
+</button>
+<span class="uppercase tracking-widest text-[11px] text-outline font-medium select-none">YÑZ × CRDL — SECOND THOUGHT</span>
+</div>
+</footer>
+</div>
+<!-- ======================================================== -->
+<!-- 05 · VISTA MANIFIESTO (EL PORQUÉ DE SECOND THOUGHT)       -->
+<!-- ======================================================== -->
+<section class="view-panel min-h-screen flex flex-col justify-between p-8 md:p-14 w-full is-hidden" id="view-manifesto">
+<!-- Navegación superior del Manifiesto -->
+<header class="w-full flex justify-between items-center text-[12px]">
+<div class="flex items-center space-x-4">
+<button class="text-on-surface-variant hover:text-on-surface transition-colors flex items-center space-x-1.5 uppercase tracking-wider cursor-pointer" onclick="routeTo('selector')" title="Volver al selector" type="button">
+<span class="">←</span>
+<span class="">Volver al selector</span>
+</button>
+<span class="text-border-subtle">|</span>
+<button class="font-semibold text-on-surface uppercase tracking-wider hover:opacity-75 transition-opacity cursor-pointer text-left" onclick="routeTo('inicio')" title="Ir al inicio" type="button">
+SECOND THOUGHT
+</button>
+</div>
+<span class="text-[12px] uppercase tracking-[0.16em] text-outline font-medium">00 · MANIFIESTO</span>
+</header>
+<!-- Contenido reflexivo del Manifiesto -->
+<main class="w-full max-w-3xl mx-auto my-auto py-12 md:py-16 text-left">
+<div class="mb-10">
+<div class="text-[12px] uppercase tracking-[0.2em] text-outline font-medium mb-3">
+¿POR QUÉ SECOND THOUGHT?
+</div>
+<h2 class="text-3xl sm:text-5xl font-semibold tracking-tight text-on-surface mb-6">
+Pensar dos veces antes del automatismo.
+</h2>
+<p class="text-lg md:text-xl text-on-surface-variant font-normal leading-relaxed">
+Vivimos rodeados de respuestas inmediatas y afirmaciones incuestionadas. Creamos este espacio para recuperar la pausa y el rigor mental sin el ruido de la velocidad contemporánea.
+</p>
+</div>
+<div class="space-y-8 border-t border-b border-border-subtle py-8 text-[15px] sm:text-[16px] leading-relaxed text-on-surface">
+<div>
+<h3 class="text-[12px] uppercase tracking-wider font-semibold text-outline mb-2">01 · La trampa de la primera certeza</h3>
+<p class="text-on-surface-variant">
+La primera respuesta casi siempre pertenece a la inercia cultural, al sesgo cognitivo o al impulso de cerrar un problema cuanto antes. <em>Second Thought</em> propone suspender el juicio automático para poner a prueba los cimientos de lo que damos por sentado.
+</p>
+</div>
+<div>
+<h3 class="text-[12px] uppercase tracking-wider font-semibold text-outline mb-2">02 · Método: Afirmar, Cuestionar, Comprobar</h3>
+<p class="text-on-surface-variant">
+No buscamos la contradicción cínica ni el relativismo vacuo, sino la contrastación rigurosa: analizar premisas lógicas, formular deducciones matemáticas verificables y abrir espacio a la imaginación contemplativa.
+</p>
+</div>
+<div>
+<h3 class="text-[12px] uppercase tracking-wider font-semibold text-outline mb-2">03 · Atención rigurosa sin ruido</h3>
+<p class="text-on-surface-variant">
+Una interfaz libre de artificios, métricas de retención o estímulos superficiales. Solo la palabra exacta, la deducción transparente y el tiempo indispensable para pensar bien.
+</p>
+</div>
+</div>
+<div class="mt-10 flex flex-wrap items-center gap-6">
+<button class="btn-editorial group inline-flex flex-col items-start text-on-surface font-semibold text-[13px] uppercase tracking-wider py-2 cursor-pointer" onclick="routeTo('selector')" type="button">
+<span class="flex items-center space-x-2">
+<span class="">EXPLORAR EXPERIENCIAS</span>
+<span class="arrow-shift">→</span>
+</span>
+<span class="underline-mark h-[1px] bg-on-surface mt-1"></span>
+</button>
+<button class="text-[13px] uppercase tracking-wider text-outline hover:text-on-surface transition-colors cursor-pointer" onclick="routeTo('inicio')" type="button">
+Ir al Inicio
+</button>
+</div>
+</main>
+<!-- Pie del Manifiesto -->
+<footer class="w-full flex justify-between items-center text-[12px] text-on-surface-variant">
+<button class="hover:text-on-surface transition-colors uppercase tracking-wider text-[12px] font-medium text-on-surface cursor-pointer inline-flex items-center space-x-1" onclick="routeTo('selector')" type="button">
+<span class="">← Selector</span>
+</button>
+<span class="uppercase tracking-widest text-[11px] text-outline font-medium select-none">YÑZ × CRDL — SECOND THOUGHT</span>
+</footer>
+</section>
+</div>
+<!-- ======================================================== -->
+<!-- SISTEMA DE CONTROL DE ESTADO, ROUTING Y CONVERSACIÓN     -->
+<!-- ======================================================== -->
+<script src="app.js"></script>
+
+
+</body></html>
