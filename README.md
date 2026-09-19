@@ -39,18 +39,24 @@ que cargues la clave real.
 
 ## ✏️ Cómo editar los 3 modos
 
-Editá `modes.js` en la raíz. Cada modo tiene:
-- `title`, `eyebrow`, `heading`, `subtext`, `placeholder`: textos que ve el usuario.
-- `systemPrompt`: **el prompt real** que le da personalidad e instrucciones al
-  modelo. Fue redactado a partir de la metodología ya definida en el diseño
-  (`design/DESIGN.md` y el Manifiesto dentro de `public/index.html`) — es un
-  primer borrador, editalo con confianza.
+Los prompts reales viven, tal cual fueron escritos, en la carpeta `prompts/`
+(`question.txt`, `solve.txt`, `imagine.txt`). Para cambiar el comportamiento de
+un modo, editá ese archivo. `modes.js` los carga y define los textos de interfaz
+de cada modo (`title`, `eyebrow`, `heading`, `subtext`, `placeholder`).
 
 A diferencia de otros proyectos similares, acá **el `systemPrompt` nunca se
 manda al navegador** — `/api/modes` solo expone los textos de UI.
 
 No hace falta tocar `server.js`, `public/index.html` ni `public/app.js` para
 cambiar el contenido de los modos.
+
+## 🖼️ Imágenes y 🔊 voz
+
+- **Imaginar** acepta hasta 3 imágenes por mensaje (botón, arrastrar o pegar).
+  Se reducen en el navegador antes de enviarse.
+- Cada respuesta tiene un botón **Escuchar** que usa el texto a voz de OpenAI
+  (`gpt-4o-mini-tts`) vía `/api/tts`. La voz se elige en la zona de entrada.
+
 
 ## 🔐 Sobre el login
 
@@ -86,8 +92,9 @@ modelo en tu cuenta de OpenAI para estimar el costo real de uso.
 
 ```
 Proyecto ORT/
-├── server.js       # API Express (/api/modes, /api/generate)
-├── modes.js         # ← acá están (y se editan) los 3 system prompts reales
+├── server.js       # API Express (/api/modes, /api/generate, /api/tts)
+├── modes.js         # carga los prompts y define los textos de cada modo
+├── prompts/         # ← los 3 system prompts reales (question, solve, imagine)
 ├── public/
 │   ├── index.html    # el diseño exportado de Stitch, tal cual
 │   └── app.js         # routing + conexión real al backend

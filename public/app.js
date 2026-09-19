@@ -6,7 +6,11 @@ let currentMode = "solve";
 let isSubmitting = false;
 let isSending = false;
 let history = []; // [{ role: "user"|"assistant", content }] — se resetea al cambiar de modo
+let pendingImages = []; // data URLs listas para enviar (solo modo Imaginar)
+let stopActiveAudio = null;
 const MAX_HISTORY_TURNS = 12;
+const MAX_IMAGES = 3;
+const MAX_IMAGE_CHARS = 1_200_000;
 
 const VIEWS = {
   inicio: "view-inicio",
@@ -19,33 +23,54 @@ const VIEWS = {
   manifesto: "view-manifesto",
 };
 
-// Solo lo que es puramente de UI (no viene del backend): a qué botón de
-// nav corresponde cada modo, y el ejemplo fijo que muestra "PROBAR UN EJEMPLO".
+// Solo lo que es puramente de UI: a qué botón de nav corresponde cada modo.
 const MODE_UI = {
-  question: {
-    navId: "nav-btn-question",
-    example: {
-      userQuery:
-        "Leí que tomar agua con limón en ayunas desintoxica el hígado y quema grasas. ¿Qué tan cierto es?",
-    },
-  },
-  solve: {
-    navId: "nav-btn-solve",
-    example: {
-      userQuery:
-        "Una pelota se suelta desde un balcón a 20 metros de altura en caída libre. ¿Cuánto tiempo tarda exactamente en llegar al suelo?",
-    },
-  },
-  imagine: {
-    navId: "nav-btn-imagine",
-    example: {
-      userQuery: "Escribí una escena a partir de la atmósfera de esta estación en penumbra.",
-    },
-  },
+  question: { navId: "nav-btn-question" },
+  solve: { navId: "nav-btn-solve" },
+  imagine: { navId: "nav-btn-imagine" },
 };
 
-// Se completa con /api/modes al cargar (code, title, eyebrow, heading,
-// subtext, placeholder). El systemPrompt real nunca llega al navegador.
+// Contenido del selector desplegable
+const ACCORDION = [
+  {
+    id: "question",
+    code: "01",
+    title: "CUESTIONAR",
+    desc: "Examen crítico de una afirmación, una noticia o un texto: qué fuentes tiene, qué sesgos y qué fallas lógicas.",
+    steps: [
+      ["AFIRMACIÓN", "“El agua con limón elimina las toxinas.”"],
+      ["CUESTIÓN", "¿Qué evidencia lo respalda?"],
+      ["COMPROBACIÓN", "Sin fuentes identificables: confiabilidad BAJA"],
+    ],
+    features: ["Elegís el nivel: general, intermedio o especializado", "Veredicto ALTA, MEDIA o BAJA", "Guía para verificar por tu cuenta"],
+  },
+  {
+    id: "solve",
+    code: "02",
+    title: "RESOLVER",
+    desc: "Un tutor de matemática que no te da la respuesta: te guía con preguntas y pistas hasta que llegás vos.",
+    steps: [
+      ["DIAGNÓSTICO", "¿En qué nivel estás y qué te cuesta?"],
+      ["PLAN", "El ejercicio dividido en pasos chicos"],
+      ["PASO A PASO", "Vos hacés las cuentas, el tutor te acompaña"],
+    ],
+    features: ["Se adapta a tu nivel", "Nunca revela el resultado final", "Trabajás guiado o por tu cuenta"],
+  },
+  {
+    id: "imagine",
+    code: "03",
+    title: "IMAGINAR",
+    desc: "Convierte una foto en un relato hablado, fiel a lo que se ve, pensado para personas ciegas o con baja visión.",
+    steps: [
+      ["IMAGEN", "Adjuntás una foto"],
+      ["OBSERVACIÓN", "Se registra solo lo que realmente se ve"],
+      ["RELATO", "Una historia para escuchar, sin datos inventados"],
+    ],
+    features: ["Adjuntá hasta 3 imágenes", "Largo corto, medio o largo", "Escuchalo con voz de OpenAI"],
+  },
+];
+
+// Se completa con /api/modes al cargar. El systemPrompt real nunca llega al navegador.
 let MODES = {};
 
 async function loadModes() {
@@ -56,12 +81,13 @@ async function loadModes() {
     data.forEach((m) => {
       MODES[m.id] = { ...m, ...MODE_UI[m.id] };
     });
+    if (currentRoute === "modules") setMode(currentMode);
   } catch (err) {
     console.error("No se pudieron cargar los modos:", err);
   }
 }
 
-// Enrutador fluído que conmuta de forma instantánea y limpia las vistas del SPA
+// Enrutador que conmuta las vistas del SPA
 function routeTo(viewName) {
   currentRoute = viewName;
 
@@ -98,7 +124,6 @@ function routeTo(viewName) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-// Navegar directamente a un módulo específico desde el selector o links
 function routeToModule(modeKey) {
   setMode(modeKey);
   routeTo("modules");
@@ -136,19 +161,12 @@ function setMode(modeKey) {
   if (inputEl) inputEl.setAttribute("placeholder", meta.placeholder);
 
   const imgBar = document.getElementById("imagine-inline-bar");
-  if (imgBar) {
-    if (modeKey === "imagine") {
-      imgBar.classList.remove("hidden");
-    } else {
-      imgBar.classList.add("hidden");
-    }
-  }
+  if (imgBar) imgBar.classList.toggle("hidden", modeKey !== "imagine");
 
   clearConversation();
 }
 
-// Gestión del Formulario de Acceso — puerta temática, no autenticación real.
-// Acepta cualquier usuario/contraseña no vacíos, igual que en el diseño original.
+// Formulario de acceso — puerta temática, no autenticación real.
 function handleLoginSubmit(event) {
   if (event) {
     event.preventDefault();
@@ -199,9 +217,87 @@ function handleLoginSubmit(event) {
   }, 300);
 }
 
-// Limpieza de conversación (también resetea el historial que se manda al backend)
+// ============================================================
+// SELECTOR DESPLEGABLE
+// ============================================================
+function renderAccordion() {
+  const root = document.getElementById("mode-accordion");
+  if (!root) return;
+
+  root.innerHTML = ACCORDION.map(
+    (m) => `
+    <div class="acc-item px-2 sm:px-4 transition-colors hover:bg-surface-subtle/50" data-mode="${m.id}">
+      <button aria-controls="acc-${m.id}" aria-expanded="false" class="acc-head w-full text-left py-7 sm:py-9 cursor-pointer" id="acc-btn-${m.id}" type="button">
+        <div class="flex items-baseline justify-between gap-4">
+          <div class="flex items-baseline space-x-4">
+            <span class="text-[14px] font-mono text-outline">${m.code}</span>
+            <h3 class="acc-title text-2xl sm:text-3xl font-semibold tracking-tight text-on-surface">${m.title}</h3>
+          </div>
+          <span aria-hidden="true" class="acc-icon text-[28px] leading-none text-on-surface font-light">+</span>
+        </div>
+        <p class="text-[14px] text-on-surface-variant mt-2 pl-9 max-w-xl">${m.desc}</p>
+      </button>
+      <div aria-labelledby="acc-btn-${m.id}" class="acc-panel" id="acc-${m.id}" inert role="region">
+        <div>
+          <div class="pl-9 pb-8 pt-1 space-y-6">
+            <div class="acc-rule h-px bg-border-subtle"></div>
+            <ol class="space-y-2.5">
+              ${m.steps
+                .map(
+                  ([label, text], i) => `
+                <li class="acc-step flex items-baseline gap-3 text-[13px]" style="--i:${i}">
+                  <span aria-hidden="true" class="font-mono text-outline">↓</span>
+                  <span class="text-[11px] uppercase tracking-wider text-outline w-28 shrink-0">${label}</span>
+                  <span class="text-on-surface">${text}</span>
+                </li>`
+                )
+                .join("")}
+            </ol>
+            <ul class="flex flex-wrap gap-2">
+              ${m.features
+                .map(
+                  (f, i) =>
+                    `<li class="acc-chip text-[12px] text-on-surface-variant border border-border-subtle px-3 py-1" style="--i:${i + m.steps.length}">${f}</li>`
+                )
+                .join("")}
+            </ul>
+            <div>
+              <button class="acc-enter btn-cross-underline inline-flex items-center space-x-2 text-[13px] font-semibold uppercase tracking-wider text-on-surface py-1.5 cursor-pointer" onclick="routeToModule('${m.id}')" style="--i:${m.steps.length + m.features.length}" type="button">
+                <span>Entrar</span><span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`
+  ).join("");
+
+  root.querySelectorAll(".acc-head").forEach((head) => {
+    head.addEventListener("click", () => toggleAccordion(head.closest(".acc-item")));
+  });
+}
+
+function toggleAccordion(item) {
+  const willOpen = !item.classList.contains("is-open");
+  document.querySelectorAll("#mode-accordion .acc-item").forEach((other) => setAccordionState(other, false));
+  if (willOpen) setAccordionState(item, true);
+}
+
+function setAccordionState(item, open) {
+  item.classList.toggle("is-open", open);
+  item.querySelector(".acc-head").setAttribute("aria-expanded", String(open));
+  const panel = item.querySelector(".acc-panel");
+  if (panel) panel.inert = !open;
+}
+
+// ============================================================
+// CONVERSACIÓN
+// ============================================================
 function clearConversation() {
   history = [];
+  pendingImages = [];
+  renderAttachPreview();
+  if (stopActiveAudio) stopActiveAudio();
   const stream = document.getElementById("conversation-stream");
   const emptyState = document.getElementById("empty-state-view");
   if (stream) {
@@ -212,16 +308,66 @@ function clearConversation() {
     emptyState.classList.remove("hidden");
   }
   const input = document.getElementById("user-input");
-  if (input) input.value = "";
+  if (input) {
+    input.value = "";
+    autoGrow(input);
+  }
 }
 
-// "Probá un ejemplo": muestra un caso fijo pre-armado para ilustrar el modo.
-// Es una vidriera, no una consulta real — se mantiene con texto fijo a propósito.
+// "Probar un ejemplo": muestra un caso fijo pre-armado para ilustrar el modo.
+const EXAMPLES = {
+  question: {
+    label: "Pregunta planteada",
+    query: "Leí que tomar agua con limón en ayunas desintoxica el hígado y quema grasas. ¿Qué tan cierto es?",
+    html: `
+      <div class="text-[11px] uppercase tracking-wider text-on-surface-variant font-medium">Desglose crítico (ejemplo ilustrativo)</div>
+      <div class="space-y-6 text-[15px] leading-relaxed text-on-surface">
+        <div class="pb-3 border-b border-border-subtle">
+          <span class="text-[12px] uppercase font-semibold text-outline block mb-1">Afirmación evaluada</span>
+          <p class="italic">"Tomar agua con limón en ayunas desintoxica el hígado y disuelve tejido graso."</p>
+        </div>
+        <div>
+          <span class="text-[12px] uppercase font-semibold block mb-1">Fuente</span>
+          <p class="text-on-surface-variant">Sin fuente. No se cita ningún estudio ni dato que respalde la afirmación.</p>
+        </div>
+        <div>
+          <span class="text-[12px] uppercase font-semibold block mb-1">Coherencia lógica</span>
+          <p class="text-on-surface-variant">Salta de "el limón tiene vitamina C" a "desintoxica el hígado" sin explicar el mecanismo intermedio.</p>
+        </div>
+        <div>
+          <span class="text-[12px] uppercase font-semibold block mb-1">Veredicto</span>
+          <p class="text-on-surface font-semibold">Confiabilidad BAJA</p>
+        </div>
+      </div>`,
+  },
+  solve: {
+    label: "Ejercicio planteado",
+    query: "Quiero resolver 2x + 6 = 14.",
+    html: `
+      <div class="text-[11px] uppercase tracking-wider text-on-surface-variant font-medium">Tutor socrático (ejemplo ilustrativo)</div>
+      <div class="space-y-4 text-[15px] leading-relaxed text-on-surface">
+        <p>¡Buenísimo, vamos a resolverlo juntos! Antes de empezar, ¿en qué período educativo estás?</p>
+        <p class="text-on-surface-variant">Liceo ciclo básico</p>
+        <p>Perfecto. Paso 1: queremos dejar la x sola de un lado. Para eso, primero hay que sacar el 6 que la acompaña. ¿Qué operación creés que nos sirve para "cancelar" ese + 6?</p>
+      </div>`,
+  },
+  imagine: {
+    label: "Imagen adjunta",
+    query: "Andén de estación en penumbra.",
+    html: `
+      <div class="text-[11px] uppercase tracking-wider text-on-surface-variant font-medium">Relato (ejemplo ilustrativo)</div>
+      <div class="space-y-4 text-[16px] leading-[1.75] text-on-surface" data-speech>
+        <p>El andén está casi vacío y la luz es baja, de esas que se sienten tibias en medio del frío. Los rieles se pierden a lo lejos, tan lejos que ningún ruido llega hasta acá.</p>
+        <p>Todo parece quieto, como si la estación esperara algo. Queda la sensación de un silencio largo, de ese que aparece justo antes de que llegue un tren.</p>
+      </div>`,
+  },
+};
+
 function loadExampleScenario() {
   const emptyState = document.getElementById("empty-state-view");
   const stream = document.getElementById("conversation-stream");
-  const meta = MODE_UI[currentMode];
-  if (!meta) return;
+  const ex = EXAMPLES[currentMode];
+  if (!ex) return;
 
   if (emptyState) emptyState.classList.add("hidden");
   if (stream) {
@@ -230,93 +376,22 @@ function loadExampleScenario() {
   }
 
   const userNode = document.createElement("div");
-  userNode.className = "fade-enter pl-4 border-l border-on-surface/30";
+  userNode.className = "msg-in pl-4 border-l border-on-surface/30";
   userNode.innerHTML = `
-    <div class="text-[11px] uppercase tracking-wider text-outline mb-1 font-medium">Pregunta planteada</div>
-    <p class="text-[18px] text-on-surface leading-snug font-medium">${escapeHtml(meta.example.userQuery)}</p>
+    <div class="text-[11px] uppercase tracking-wider text-outline mb-1 font-medium">${ex.label}</div>
+    <p class="text-[18px] text-on-surface leading-snug font-medium">${escapeHtml(ex.query)}</p>
   `;
   if (stream) stream.appendChild(userNode);
 
   setTimeout(() => {
     const responseNode = document.createElement("div");
-    responseNode.className = "space-y-6 pt-2";
-
-    let editorialHtml = "";
-
-    if (currentMode === "question") {
-      editorialHtml = `
-        <div class="text-[11px] uppercase tracking-wider text-on-surface-variant font-medium">Desglose Crítico</div>
-        <div class="space-y-6 text-[15px] leading-relaxed text-on-surface">
-          <div class="pb-3 border-b border-border-subtle">
-            <span class="text-[12px] uppercase font-semibold text-outline block mb-1">Afirmación evaluada</span>
-            <p class="italic text-on-surface">"Tomar agua con limón en ayunas desintoxica el hígado y disuelve tejido graso."</p>
-          </div>
-          <div>
-            <span class="text-[12px] uppercase font-semibold text-on-surface block mb-1">Evidencia real</span>
-            <p class="text-on-surface-variant">El agua con limón aporta hidratación y vitamina C. Sin embargo, la eliminación de metabolitos y toxinas endógenas corresponde exclusivamente a la filtración renal y al catabolismo hepático. Ningún componente químico del limón posee mecanismos catalizadores directos sobre la lipólisis o la detoxificación celular.</p>
-          </div>
-          <div>
-            <span class="text-[12px] uppercase font-semibold text-on-surface block mb-1">Posible sesgo de percepción</span>
-            <p class="text-on-surface-variant">Asociación inmediata entre la acidez sensorial y la sensación de pureza orofaríngea con una depuración biológica profunda que no ocurre a nivel de tejidos.</p>
-          </div>
-          <div>
-            <span class="text-[12px] uppercase font-semibold text-on-surface block mb-1">Incertidumbre o matiz comprobable</span>
-            <p class="text-on-surface-variant">El efecto beneficioso reside en el reemplazo de bebidas hipercalóricas y en el hábito saludable de beber agua al despertar, no en propiedades milagrosas de la fruta.</p>
-          </div>
-        </div>
-      `;
-    } else if (currentMode === "solve") {
-      editorialHtml = `
-        <div class="text-[11px] uppercase tracking-wider text-on-surface-variant font-medium">Deducción Matemática y Cinemática</div>
-        <div class="space-y-5 text-[15px] leading-relaxed">
-          <div class="space-y-3 pb-4 border-b border-border-subtle">
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-1">
-              <span class="text-[13px] font-semibold text-on-surface">1. Datos iniciales:</span>
-              <span class="sm:col-span-3 text-on-surface-variant">Altura inicial (h) = 20 m · Velocidad inicial (v₀) = 0 m/s · Aceleración (g) = 9,8 m/s²</span>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-1">
-              <span class="text-[13px] font-semibold text-on-surface">2. Ecuación:</span>
-              <span class="sm:col-span-3 text-on-surface-variant">h = v₀ · t + ½ · g · t²</span>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-1">
-              <span class="text-[13px] font-semibold text-on-surface">3. Procedimiento:</span>
-              <span class="sm:col-span-3 text-on-surface-variant">20 = ½ · (9,8) · t²  →  20 = 4,9 · t²  →  t² = 20 / 4,9 ≈ 4,0816</span>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-1 pt-1">
-              <span class="text-[13px] font-semibold text-on-surface">4. Solución:</span>
-              <span class="sm:col-span-3 text-on-surface font-semibold text-[16px]">t = √4,0816 ≈ 2,02 segundos</span>
-            </div>
-          </div>
-          <p class="text-[14px] text-on-surface-variant italic">¿Querés formular otra condición inicial o incorporar resistencia viscosa del aire?</p>
-        </div>
-      `;
-    } else if (currentMode === "imagine") {
-      editorialHtml = `
-        <div class="text-[11px] uppercase tracking-wider text-on-surface-variant font-medium">Narración Literaria</div>
-        <div class="space-y-6">
-          <figure class="my-3">
-            <img
-              src="https://lh3.googleusercontent.com/aida/AEtjO1XrjF3JBmFh_6UqHOPGNYydXHLi6BKkLr_AsUCgHggBkR3ygf3wqI9gX-vHRChb3kMS1ryfzakCK4tENC2VickHzmOCedAsJy0Ru05_AWC4xfWBPNycHBomR5PcCzpm4EybnngjQg2WkNRYqACAYo9mqfoKbhWTGseZ9svKbd5h8ZvX13QyofZdawZGQ6mHQLTXJCZjKEDGSPIQ__WI7wEY8ysVNSi_HSAdgzWw0Qw1Ax7XOcbR9unT6Q"
-              alt="Fotografía documental de un andén de estación en penumbra y luz tenue"
-              class="w-full h-auto max-h-[420px] object-cover filter contrast-[1.02]"
-            />
-            <figcaption class="mt-2 text-[12px] text-outline italic text-left">Andén exterior. Tarde serena previa a la partida.</figcaption>
-          </figure>
-          <div class="space-y-4 text-[16px] leading-[1.75] text-on-surface">
-            <p>El andén olía a hierro frío y a ese vapor espeso que suele preceder a la noche. Elena no miraba el reloj del panel ni revisaba el equipaje apoyado junto al banco de madera; esperaba el silbido sordo de las seis y media no para partir, sino para tener la certeza de que el día concluía formalmente.</p>
-            <p>A través de los cristales opacos de la garita, la luz caía oblicua sobre los rieles gastados. El convoy distante aminoró su marcha con un quejido mecánico, y en ese breve intervalo en que cesa toda prisa, la estación entera pareció quedar suspendida en un murmullo de aire tibio.</p>
-          </div>
-        </div>
-      `;
-    }
-
+    responseNode.className = "msg-in space-y-6 pt-2";
     responseNode.innerHTML = `
-      <div class="flex items-center space-x-2 text-[13px] font-semibold text-on-surface uppercase tracking-wider">
-        <span>SECOND THOUGHT</span>
-      </div>
-      ${editorialHtml}
+      <div class="flex items-center space-x-2 text-[13px] font-semibold text-on-surface uppercase tracking-wider"><span>SECOND THOUGHT</span></div>
+      ${ex.html}
     `;
-
+    const speech = responseNode.querySelector("[data-speech]");
+    if (speech) responseNode.appendChild(createListenControl(() => speech.innerText));
     if (stream) {
       stream.appendChild(responseNode);
       responseNode.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -324,7 +399,6 @@ function loadExampleScenario() {
   }, 180);
 }
 
-// Indicador de espera mínimo, en el mismo registro tipográfico que el resto
 function appendThinkingNode() {
   const stream = document.getElementById("conversation-stream");
   if (!stream) return;
@@ -345,28 +419,310 @@ function appendErrorNode(message) {
   if (!stream) return;
   const node = document.createElement("div");
   node.setAttribute("role", "alert");
-  node.className = "text-[14px] text-red-700 border-l border-red-700/40 pl-4";
+  node.className = "msg-in text-[14px] text-red-700 border-l border-red-700/40 pl-4";
   node.textContent = message;
   stream.appendChild(node);
   node.scrollIntoView({ behavior: "smooth", block: "end" });
 }
 
-function renderAiParagraphs(text) {
-  return text
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br />")}</p>`)
-    .join("");
+// ============================================================
+// FORMATO DE LAS RESPUESTAS (markdown básico → HTML seguro)
+// ============================================================
+function inlineFormat(raw) {
+  return escapeHtml(raw)
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+    .replace(/(^|[\s(])\*(?!\s)(.+?)(?<!\s)\*(?=$|[\s).,;:!?])/g, '$1<em>$2</em>')
+    .replace(/`([^`]+)`/g, '<code class="font-mono text-[0.92em] bg-surface-subtle px-1">$1</code>');
 }
 
-// Envío y respuesta real (vía backend) de mensajes del usuario
+function renderRichText(text) {
+  const lines = text.replace(/\r/g, "").split("\n");
+  const out = [];
+  let i = 0;
+
+  const isTableSep = (l) => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l || "");
+  const splitRow = (l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (!line.trim()) { i++; continue; }
+
+    if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+      out.push('<hr class="border-border-subtle my-2" />');
+      i++;
+      continue;
+    }
+
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) {
+      const size = h[1].length <= 2 ? "text-[17px]" : "text-[15px]";
+      out.push(`<h4 class="${size} font-semibold text-on-surface pt-2">${inlineFormat(h[2])}</h4>`);
+      i++;
+      continue;
+    }
+
+    if (line.includes("|") && isTableSep(lines[i + 1])) {
+      const head = splitRow(line);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && lines[i].includes("|") && lines[i].trim()) {
+        rows.push(splitRow(lines[i]));
+        i++;
+      }
+      out.push(
+        `<div class="overflow-x-auto"><table class="rich-table text-[14px] w-full"><thead><tr>${head
+          .map((c) => `<th>${inlineFormat(c)}</th>`)
+          .join("")}</tr></thead><tbody>${rows
+          .map((r) => `<tr>${r.map((c) => `<td>${inlineFormat(c)}</td>`).join("")}</tr>`)
+          .join("")}</tbody></table></div>`
+      );
+      continue;
+    }
+
+    if (/^\s*>/.test(line)) {
+      const quote = [];
+      while (i < lines.length && /^\s*>/.test(lines[i])) {
+        quote.push(lines[i].replace(/^\s*>\s?/, ""));
+        i++;
+      }
+      out.push(`<blockquote class="border-l-2 border-on-surface/30 pl-4 text-on-surface-variant italic">${quote.map(inlineFormat).join("<br />")}</blockquote>`);
+      continue;
+    }
+
+    if (/^\s*[-*•]\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*[-*•]\s+/.test(lines[i])) {
+        const indent = lines[i].match(/^\s*/)[0].length;
+        items.push(`<li style="margin-left:${Math.min(indent, 8) * 6}px">${inlineFormat(lines[i].replace(/^\s*[-*•]\s+/, ""))}</li>`);
+        i++;
+      }
+      out.push(`<ul class="list-disc pl-5 space-y-1.5">${items.join("")}</ul>`);
+      continue;
+    }
+
+    if (/^\s*\d+[.)]\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*\d+[.)]\s+/.test(lines[i])) {
+        items.push(`<li>${inlineFormat(lines[i].replace(/^\s*\d+[.)]\s+/, ""))}</li>`);
+        i++;
+      }
+      out.push(`<ol class="list-decimal pl-5 space-y-1.5">${items.join("")}</ol>`);
+      continue;
+    }
+
+    const para = [];
+    while (
+      i < lines.length &&
+      lines[i].trim() &&
+      !/^(#{1,6}\s|\s*>|\s*[-*•]\s+|\s*\d+[.)]\s+|\s*(-{3,}|\*{3,}|_{3,})\s*$)/.test(lines[i]) &&
+      !(lines[i].includes("|") && isTableSep(lines[i + 1]))
+    ) {
+      para.push(inlineFormat(lines[i]));
+      i++;
+    }
+    out.push(`<p>${para.join("<br />")}</p>`);
+  }
+
+  return out.join("");
+}
+
+// ============================================================
+// VOZ (texto a voz de OpenAI vía /api/tts)
+// ============================================================
+function prepareSpeechText(raw) {
+  let text = String(raw)
+    .replace(/[*_`#>|]/g, "")
+    .replace(/\n{2,}/g, "\n\n")
+    .trim();
+  if (text.length > 4000) {
+    const cut = text.slice(0, 4000);
+    const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf(".\n"));
+    text = end > 1500 ? cut.slice(0, end + 1) : cut;
+  }
+  return text;
+}
+
+function createListenControl(getText) {
+  const wrap = document.createElement("div");
+  wrap.className = "pt-1";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className =
+    "listen-btn inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider text-on-surface hover:opacity-60 transition-opacity border-b border-on-surface/40 pb-0.5 cursor-pointer";
+  btn.innerHTML = `<span aria-hidden="true" class="eq"><i></i><i></i><i></i><i></i></span><span class="listen-label">Escuchar</span>`;
+  wrap.appendChild(btn);
+
+  const label = btn.querySelector(".listen-label");
+  let blobUrl = null;
+  let cachedVoice = null;
+  let audio = null;
+  let busy = false;
+
+  const reset = () => {
+    btn.classList.remove("is-playing");
+    label.textContent = "Escuchar";
+    busy = false;
+    if (audio) {
+      audio.pause();
+      audio = null;
+    }
+    if (stopActiveAudio === reset) stopActiveAudio = null;
+  };
+
+  btn.addEventListener("click", async () => {
+    if (btn.classList.contains("is-playing") || busy) {
+      reset();
+      return;
+    }
+    if (stopActiveAudio) stopActiveAudio();
+
+    const voice = document.getElementById("voice-select")?.value || "coral";
+    busy = true;
+    label.textContent = "Preparando voz…";
+    try {
+      if (!blobUrl || cachedVoice !== voice) {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+        const res = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: prepareSpeechText(getText()), voice }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "No se pudo generar el audio.");
+        }
+        blobUrl = URL.createObjectURL(await res.blob());
+        cachedVoice = voice;
+      }
+      if (!busy) return; // el usuario canceló mientras se generaba
+      audio = new Audio(blobUrl);
+      audio.addEventListener("ended", reset);
+      await audio.play();
+      btn.classList.add("is-playing");
+      label.textContent = "Detener";
+      stopActiveAudio = reset;
+    } catch (err) {
+      reset();
+      label.textContent = err.message || "No se pudo reproducir.";
+      setTimeout(() => {
+        if (!btn.classList.contains("is-playing") && !busy) label.textContent = "Escuchar";
+      }, 3500);
+    }
+  });
+
+  return wrap;
+}
+
+// ============================================================
+// IMÁGENES ADJUNTAS (modo Imaginar)
+// ============================================================
+function loadImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("No pude leer esa imagen. Probá con JPG, PNG o WEBP."));
+    };
+    img.src = url;
+  });
+}
+
+async function compressImage(file) {
+  const img = await loadImageFile(file);
+  let max = 1280;
+  let quality = 0.82;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const scale = Math.min(1, max / Math.max(img.width, img.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL("image/jpeg", quality);
+    if (dataUrl.length <= MAX_IMAGE_CHARS) return dataUrl;
+    max = Math.round(max * 0.75);
+    quality = Math.max(0.6, quality - 0.08);
+  }
+  throw new Error("La imagen es demasiado pesada. Probá con otra más chica.");
+}
+
+function showAttachError(message) {
+  let el = document.getElementById("attach-error");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "attach-error";
+    el.setAttribute("role", "alert");
+    el.className = "mt-2 text-[12px] text-red-700";
+    document.getElementById("attach-preview")?.after(el);
+  }
+  el.textContent = message;
+  clearTimeout(showAttachError.t);
+  showAttachError.t = setTimeout(() => el.remove(), 5000);
+}
+
+async function addImageFiles(fileList) {
+  if (currentMode !== "imagine") return;
+  const files = Array.from(fileList).filter((f) => f.type.startsWith("image/"));
+  if (!files.length) {
+    if (fileList.length) showAttachError("Ese archivo no es una imagen.");
+    return;
+  }
+  for (const file of files) {
+    if (pendingImages.length >= MAX_IMAGES) {
+      showAttachError(`Podés adjuntar hasta ${MAX_IMAGES} imágenes por mensaje.`);
+      break;
+    }
+    try {
+      pendingImages.push(await compressImage(file));
+      renderAttachPreview();
+    } catch (err) {
+      showAttachError(err.message);
+    }
+  }
+}
+
+function renderAttachPreview() {
+  const box = document.getElementById("attach-preview");
+  if (!box) return;
+  box.innerHTML = "";
+  pendingImages.forEach((src, idx) => {
+    const item = document.createElement("div");
+    item.className = "thumb-in relative";
+    item.innerHTML = `
+      <img alt="Imagen adjunta ${idx + 1}" class="h-20 w-20 object-cover border border-border-subtle" src="${src}" />
+      <button aria-label="Quitar imagen ${idx + 1}" class="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-on-surface text-background text-[11px] leading-none flex items-center justify-center cursor-pointer hover:opacity-70" type="button">×</button>
+    `;
+    item.querySelector("button").addEventListener("click", () => {
+      pendingImages.splice(idx, 1);
+      renderAttachPreview();
+    });
+    box.appendChild(item);
+  });
+}
+
+// ============================================================
+// ENVÍO Y RESPUESTA
+// ============================================================
+function autoGrow(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 224) + "px";
+}
+
 async function handleSendMessage() {
   const input = document.getElementById("user-input");
   const sendBtn = document.getElementById("btn-send");
   if (!input || isSending) return;
   const text = input.value.trim();
-  if (!text) return;
+  const images = currentMode === "imagine" ? pendingImages.slice() : [];
+  if (!text && !images.length) return;
 
   const emptyState = document.getElementById("empty-state-view");
   const stream = document.getElementById("conversation-stream");
@@ -375,13 +731,23 @@ async function handleSendMessage() {
   if (stream) stream.classList.remove("hidden");
 
   const userNode = document.createElement("div");
-  userNode.className = "pl-4 border-l border-on-surface/30";
+  userNode.className = "msg-in pl-4 border-l border-on-surface/30";
   userNode.innerHTML = `
-    <div class="text-[11px] uppercase tracking-wider text-outline mb-1 font-medium">Interrogante</div>
-    <p class="text-[17px] text-on-surface leading-snug font-medium">${escapeHtml(text)}</p>
+    <div class="text-[11px] uppercase tracking-wider text-outline mb-1 font-medium">${images.length ? "Imagen y pedido" : "Interrogante"}</div>
+    ${
+      images.length
+        ? `<div class="flex flex-wrap gap-3 mb-2">${images
+            .map((s, n) => `<img alt="Imagen enviada ${n + 1}" class="h-28 max-w-[220px] object-cover border border-border-subtle" src="${s}" />`)
+            .join("")}</div>`
+        : ""
+    }
+    ${text ? `<p class="text-[17px] text-on-surface leading-snug font-medium whitespace-pre-wrap">${escapeHtml(text)}</p>` : ""}
   `;
   if (stream) stream.appendChild(userNode);
   input.value = "";
+  autoGrow(input);
+  pendingImages = [];
+  renderAttachPreview();
 
   isSending = true;
   input.disabled = true;
@@ -395,33 +761,38 @@ async function handleSendMessage() {
       body: JSON.stringify({
         mode: currentMode,
         userInput: text,
+        images,
         history: history.slice(-MAX_HISTORY_TURNS * 2),
       }),
     });
 
-    const data = await res.json();
+    let data = {};
+    try {
+      data = await res.json();
+    } catch {
+      data = {};
+    }
     removeThinkingNode();
 
     if (!res.ok) {
-      throw new Error(data.error || "Error desconocido.");
+      throw new Error(data.error || (res.status === 413 ? "Las imágenes pesan demasiado. Probá con menos o más chicas." : "Error desconocido."));
     }
 
     const resp = document.createElement("div");
-    resp.className = "space-y-4 pt-2";
+    resp.className = "msg-in space-y-4 pt-2";
     resp.innerHTML = `
       <div class="flex items-center space-x-2 text-[13px] font-semibold text-on-surface uppercase tracking-wider">
         <span>SECOND THOUGHT</span>
       </div>
-      <div class="space-y-4 text-[15px] leading-relaxed text-on-surface">
-        ${renderAiParagraphs(data.answer)}
-      </div>
+      <div class="space-y-4 text-[15px] leading-relaxed text-on-surface">${renderRichText(data.answer)}</div>
     `;
+    resp.appendChild(createListenControl(() => data.answer));
     if (stream) {
       stream.appendChild(resp);
       resp.scrollIntoView({ behavior: "smooth", block: "end" });
     }
 
-    history.push({ role: "user", content: text });
+    history.push({ role: "user", content: [text, images.length ? `[${images.length} imagen(es) adjunta(s)]` : ""].filter(Boolean).join(" ") });
     history.push({ role: "assistant", content: data.answer });
   } catch (err) {
     removeThinkingNode();
@@ -434,18 +805,15 @@ async function handleSendMessage() {
   }
 }
 
-function swapImageContext() {
-  alert("En el modo Imaginar podés proponer cualquier escena o atmósfera literaria para abrir una nueva secuencia narrativa.");
-}
-
-// Inicializar listeners
+// ============================================================
+// INICIALIZACIÓN
+// ============================================================
 document.addEventListener("DOMContentLoaded", () => {
   loadModes();
+  renderAccordion();
 
   const loginForm = document.getElementById("login-form");
-  if (loginForm) {
-    loginForm.addEventListener("submit", handleLoginSubmit);
-  }
+  if (loginForm) loginForm.addEventListener("submit", handleLoginSubmit);
 
   ["login-username", "login-password"].forEach((id) => {
     const field = document.getElementById(id);
@@ -462,11 +830,59 @@ document.addEventListener("DOMContentLoaded", () => {
   const userInput = document.getElementById("user-input");
   if (userInput) {
     userInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
         e.preventDefault();
         handleSendMessage();
       }
     });
+    userInput.addEventListener("input", () => autoGrow(userInput));
+    userInput.addEventListener("paste", (e) => {
+      const files = Array.from(e.clipboardData?.files || []).filter((f) => f.type.startsWith("image/"));
+      if (files.length && currentMode === "imagine") {
+        e.preventDefault();
+        addImageFiles(files);
+      }
+    });
+  }
+
+  const voice = document.getElementById("voice-select");
+  if (voice) {
+    try {
+      const saved = localStorage.getItem("st-voice");
+      if (saved) voice.value = saved;
+    } catch {}
+    voice.addEventListener("change", () => {
+      try {
+        localStorage.setItem("st-voice", voice.value);
+      } catch {}
+    });
+  }
+
+  const fileInput = document.getElementById("file-input");
+  document.getElementById("btn-attach")?.addEventListener("click", () => fileInput?.click());
+  fileInput?.addEventListener("change", () => {
+    addImageFiles(fileInput.files);
+    fileInput.value = "";
+  });
+
+  const zone = document.getElementById("input-zone");
+  if (zone) {
+    ["dragenter", "dragover"].forEach((ev) =>
+      zone.addEventListener(ev, (e) => {
+        if (currentMode !== "imagine") return;
+        e.preventDefault();
+        zone.classList.add("drop-active");
+      })
+    );
+    ["dragleave", "drop"].forEach((ev) =>
+      zone.addEventListener(ev, (e) => {
+        if (ev === "drop" && currentMode === "imagine") {
+          e.preventDefault();
+          addImageFiles(e.dataTransfer?.files || []);
+        }
+        zone.classList.remove("drop-active");
+      })
+    );
   }
 });
 

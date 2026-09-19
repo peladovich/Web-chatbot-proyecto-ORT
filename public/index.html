@@ -182,6 +182,53 @@
       50% { opacity: 1; }
     }
 
+    /* Selector desplegable */
+    .acc-panel {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 460ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .acc-item.is-open .acc-panel { grid-template-rows: 1fr; }
+    .acc-panel > div { overflow: hidden; min-height: 0; }
+    .acc-icon { display: inline-block; transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1); }
+    .acc-item.is-open .acc-icon { transform: rotate(45deg); }
+    .acc-item.is-open .acc-title { text-decoration: underline; text-underline-offset: 8px; text-decoration-thickness: 1px; }
+    .acc-step, .acc-chip, .acc-enter { opacity: 0; transform: translateY(8px); }
+    .acc-item.is-open .acc-step,
+    .acc-item.is-open .acc-chip,
+    .acc-item.is-open .acc-enter {
+      animation: tranquilFade 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation-delay: calc(var(--i, 0) * 90ms + 160ms);
+    }
+    .acc-rule { transform: scaleX(0); transform-origin: left; transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1) 120ms; }
+    .acc-item.is-open .acc-rule { transform: scaleX(1); }
+
+    /* Mensajes, miniaturas y audio */
+    .msg-in { animation: tranquilFade 480ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    .thumb-in { animation: thumbPop 320ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    @keyframes thumbPop {
+      from { opacity: 0; transform: scale(0.85); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .drop-active { outline: 1px dashed #18181B; outline-offset: 8px; }
+    .eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
+    .eq i { display: block; width: 2px; height: 100%; background: currentColor; transform-origin: bottom; transform: scaleY(0.25); }
+    .is-playing .eq i { animation: eqBar 900ms ease-in-out infinite; }
+    .is-playing .eq i:nth-child(2) { animation-delay: 150ms; }
+    .is-playing .eq i:nth-child(3) { animation-delay: 300ms; }
+    .is-playing .eq i:nth-child(4) { animation-delay: 450ms; }
+    @keyframes eqBar {
+      0%, 100% { transform: scaleY(0.25); }
+      50% { transform: scaleY(1); }
+    }
+    .rich-table th, .rich-table td { padding: 8px 14px 8px 0; text-align: left; vertical-align: top; }
+    .rich-table th { font-weight: 600; border-bottom: 1px solid #18181B; }
+    .rich-table td { border-bottom: 1px solid #E7E5E4; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .acc-panel, .acc-icon, .acc-rule, .msg-in, .thumb-in, .eq i { animation: none !important; transition: none !important; }
+      .acc-step, .acc-chip, .acc-enter { opacity: 1 !important; transform: none !important; animation: none !important; }
+    }
     @media (prefers-reduced-motion: reduce) {
       .view-panel, .seq-step-1, .seq-step-2, .seq-step-3, .btn-editorial .arrow-shift, .btn-editorial .underline-mark, .shake-error, .title-second-thought .layer-shadow, .thinking-dots {
         animation: none !important;
@@ -356,96 +403,7 @@
             ¿QUÉ QUERÉS PENSAR DOS VECES?
           </h2>
 </div>
-<div class="divide-y divide-border-subtle border-t border-b border-border-subtle">
-<!-- 01 CUESTIONAR -->
-<div class="group py-7 sm:py-9 cursor-pointer transition-colors hover:bg-surface-subtle/50 px-2 sm:px-4" onclick="routeToModule('question')">
-<div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-<div class="flex items-baseline space-x-4">
-<span class="text-[14px] font-mono text-outline">01</span>
-<h3 class="text-2xl sm:text-3xl font-semibold tracking-tight text-on-surface group-hover:underline underline-offset-8 decoration-1 decoration-outline">
-                  CUESTIONAR
-                </h3>
-</div>
-<span class="text-[13px] text-on-surface font-medium uppercase tracking-wider inline-flex items-center space-x-1 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-<span class="">Explorar</span>
-<span class="arrow-shift">↗</span>
-</span>
-</div>
-<p class="text-[14px] text-on-surface-variant mt-2 pl-9 max-w-xl">
-              Examen crítico de premisas, sesgos cognitivos y afirmaciones cotidianas con contraste documental verificable.
-            </p>
-<!-- Progresión al hover: "El agua con limón elimina las toxinas." ↓ "¿Qué evidencia lo respalda?" -->
-<div class="pl-9 mt-4 max-h-0 overflow-hidden group-hover:max-h-20 transition-all duration-300 ease-in-out text-[13px] text-outline flex flex-col space-y-1">
-<div class="flex items-center space-x-2">
-<span class="line-through text-outline/70 font-mono">"El agua con limón elimina las toxinas."</span>
-</div>
-<div class="flex items-center space-x-2 pl-4">
-<span class="text-on-surface font-mono">↓</span>
-<span class="text-on-surface font-medium italic">"¿Qué evidencia lo respalda?"</span>
-</div>
-</div>
-</div>
-<!-- 02 RESOLVER -->
-<div class="group py-7 sm:py-9 cursor-pointer transition-colors hover:bg-surface-subtle/50 px-2 sm:px-4" onclick="routeToModule('solve')">
-<div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-<div class="flex items-baseline space-x-4">
-<span class="text-[14px] font-mono text-outline">02</span>
-<h3 class="text-2xl sm:text-3xl font-semibold tracking-tight text-on-surface group-hover:underline underline-offset-8 decoration-1 decoration-outline">
-                  RESOLVER
-                </h3>
-</div>
-<span class="text-[13px] text-on-surface font-medium uppercase tracking-wider inline-flex items-center space-x-1 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-<span class="">Explorar</span>
-<span class="arrow-shift">↗</span>
-</span>
-</div>
-<p class="text-[14px] text-on-surface-variant mt-2 pl-9 max-w-xl">
-              Descomposición deductiva paso a paso de problemas físicos, cinemáticos y matemáticos rigurosos.
-            </p>
-<!-- Progresión matemática al hover: "2x + 6 = 14" ↓ "2x = 8" ↓ "x = 4" -->
-<div class="pl-9 mt-4 max-h-0 overflow-hidden group-hover:max-h-20 transition-all duration-300 ease-in-out text-[13px] text-outline font-mono flex flex-col space-y-1">
-<span class="">2x + 6 = 14</span>
-<div class="flex items-center space-x-2 pl-3">
-<span class="text-on-surface">↓</span>
-<span class="">2x = 8</span>
-</div>
-<div class="flex items-center space-x-2 pl-6">
-<span class="text-on-surface">↓</span>
-<span class="text-on-surface font-semibold">x = 4</span>
-</div>
-</div>
-</div>
-<!-- 03 IMAGINAR -->
-<div class="group py-7 sm:py-9 cursor-pointer transition-colors hover:bg-surface-subtle/50 px-2 sm:px-4" onclick="routeToModule('imagine')">
-<div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-<div class="flex items-baseline space-x-4">
-<span class="text-[14px] font-mono text-outline">03</span>
-<h3 class="text-2xl sm:text-3xl font-semibold tracking-tight text-on-surface group-hover:underline underline-offset-8 decoration-1 decoration-outline">
-                  IMAGINAR
-                </h3>
-</div>
-<span class="text-[13px] text-on-surface font-medium uppercase tracking-wider inline-flex items-center space-x-1 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-<span class="">Explorar</span>
-<span class="arrow-shift">↗</span>
-</span>
-</div>
-<p class="text-[14px] text-on-surface-variant mt-2 pl-9 max-w-xl">
-              Prosa literaria atenta y desarrollo conceptual a partir de atmósferas y fotografía en blanco y negro.
-            </p>
-<!-- Progresión narrativa al hover: "IMAGEN" ↓ "OBSERVACIÓN" ↓ "HISTORIA" -->
-<div class="pl-9 mt-4 max-h-0 overflow-hidden group-hover:max-h-20 transition-all duration-300 ease-in-out text-[12px] text-outline uppercase tracking-wider font-medium flex flex-col space-y-1">
-<span class="">IMAGEN (Andén en penumbra)</span>
-<div class="flex items-center space-x-2 pl-3">
-<span class="text-on-surface">↓</span>
-<span class="">OBSERVACIÓN (Silencio y vapor frío)</span>
-</div>
-<div class="flex items-center space-x-2 pl-6">
-<span class="text-on-surface">↓</span>
-<span class="text-on-surface font-semibold">HISTORIA ("Elena no miraba el reloj...")</span>
-</div>
-</div>
-</div>
-</div>
+<div class="divide-y divide-border-subtle border-t border-b border-border-subtle" id="mode-accordion"></div>
 </main>
 <!-- Pie del selector -->
 <footer class="w-full flex justify-between items-center text-[12px] text-on-surface-variant">
@@ -513,24 +471,38 @@ SECOND THOUGHT
 </div>
 <!-- Zona Inferior de Entrada (Línea Mínima y Pura) -->
 <div class="w-full pt-8 pb-4 border-t border-border-subtle mt-10" id="input-zone">
-<!-- Contexto opcional para Modo Imaginar -->
-<div class="mb-3 text-[12px] text-on-surface-variant flex items-center justify-between hidden" id="imagine-inline-bar">
-<span class="">Referencia activa: Andén de estación en penumbra</span>
-<button class="hover:text-on-surface underline underline-offset-4 decoration-border-subtle cursor-pointer" onclick="swapImageContext()" type="button">
-                Cambiar imagen de referencia
-              </button>
+<!-- Adjuntos (solo modo Imaginar) -->
+<div class="mb-4 hidden" id="imagine-inline-bar">
+<div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-on-surface-variant">
+<button class="inline-flex items-center space-x-1.5 font-semibold text-on-surface uppercase tracking-wider border-b border-on-surface/40 pb-0.5 hover:opacity-60 transition-opacity cursor-pointer" id="btn-attach" type="button">
+<span>+ Adjuntar imagen</span>
+</button>
+<span class="text-outline">o arrastrá / pegá hasta 3 fotos</span>
 </div>
-<!-- Campo de texto sobrio -->
-<div class="relative flex items-center justify-between gap-4">
-<input autocomplete="off" class="w-full bg-transparent border-0 border-b border-transparent focus:border-on-surface focus:ring-0 px-0 py-2.5 text-[16px] text-on-surface placeholder:text-outline/60 focus:outline-none transition-colors" id="user-input" placeholder="Escribí una creencia, afirmación o mito para examinar..." type="text">
-<button aria-label="Enviar" class="text-on-surface hover:opacity-60 transition-opacity text-[18px] px-2 py-1 cursor-pointer font-medium" id="btn-send" onclick="handleSendMessage()" type="button">
+<div class="flex flex-wrap gap-3 mt-3" id="attach-preview"></div>
+<input accept="image/*" class="hidden" id="file-input" multiple type="file">
+</div>
+<div class="relative flex items-end justify-between gap-4">
+<textarea autocomplete="off" class="w-full resize-none max-h-56 bg-transparent border-0 border-b border-transparent focus:border-on-surface focus:ring-0 px-0 py-2.5 text-[16px] leading-relaxed text-on-surface placeholder:text-outline/60 focus:outline-none transition-colors" id="user-input" placeholder="Escribí una creencia, afirmación o mito para examinar..." rows="1"></textarea>
+<button aria-label="Enviar" class="text-on-surface hover:opacity-60 transition-opacity text-[18px] px-2 py-2 cursor-pointer font-medium" id="btn-send" onclick="handleSendMessage()" type="button">
                 ↗
               </button>
 </div>
-<!-- Acciones de soporte textuales -->
 <div class="mt-3 flex flex-wrap items-center justify-between text-[12px] text-on-surface-variant gap-3">
-<span class="text-outline">Presioná Enter ↵ para enviar</span>
-<div class="flex items-center space-x-5">
+<span class="text-outline">Enter para enviar · Shift + Enter para nueva línea</span>
+<div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+<label class="inline-flex items-center gap-2">
+<span class="uppercase tracking-wide font-medium">Voz</span>
+<select class="bg-transparent border-0 border-b border-border-subtle text-on-surface text-[12px] py-0.5 pr-5 focus:ring-0 focus:border-on-surface cursor-pointer" id="voice-select">
+<option value="coral">Coral</option>
+<option value="sage">Sage</option>
+<option value="nova">Nova</option>
+<option value="onyx">Onyx</option>
+<option value="echo">Echo</option>
+<option value="alloy">Alloy</option>
+</select>
+</label>
+<span class="text-border-subtle">·</span>
 <button class="hover:text-on-surface transition-colors uppercase font-medium tracking-wide cursor-pointer" onclick="loadExampleScenario()" type="button">
                   PROBAR UN EJEMPLO ↗
                 </button>
