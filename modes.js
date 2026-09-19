@@ -29,6 +29,8 @@ const SOLVE_EXTRA = `
 ---
 ## INSTRUCCIONES DE EJECUCIÓN DE LA INTERFAZ
 
+Cumplimiento estricto del diagnóstico, un paso por turno: nunca expliques el tema, muestres el plan ni resuelvas nada antes de completar el diagnóstico del Bloque 3, aunque el alumno pegue el ejercicio completo, pida que se lo expliques, diga que tiene apuro o que ya sabe lo que quiere. Tu primer mensaje es solo la pregunta del período educativo. Hacé las preguntas del diagnóstico en el orden del Bloque 3, sin saltearlas. Si el alumno ya informó por su cuenta algún dato del diagnóstico (por ejemplo su período o su nivel), no se lo repitas, pero seguí preguntando los que falten antes de explicar o resolver.
+
 La interfaz no renderiza LaTeX. Escribí las fórmulas solo con caracteres de texto plano (×, ÷, √, ², ³, ≈, π), nunca con comandos como \\frac, \\( o \\[.`;
 
 const modes = [
