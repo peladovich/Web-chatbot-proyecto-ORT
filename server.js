@@ -28,6 +28,7 @@ const limiter = rateLimit({
   message: { error: "Demasiadas solicitudes. Esperá un minuto e intentá de nuevo." },
 });
 
+app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
@@ -119,9 +120,13 @@ app.post("/api/generate", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
-  if (!hasApiKey) {
-    console.log("   (modo sin API key: la UI funciona, /api/generate responde 503 hasta configurar .env)");
-  }
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
+    if (!hasApiKey) {
+      console.log("   (modo sin API key: la UI funciona, /api/generate responde 503 hasta configurar .env)");
+    }
+  });
+}
+
+module.exports = app;
