@@ -42,7 +42,12 @@ const modes = [
     heading: "¿Qué certeza querés poner a prueba?",
     subtext:
       "Pegá un texto, una noticia o una afirmación. Analizamos sus fuentes, sesgos y fallas lógicas, y te decimos qué tan confiable es.",
-    placeholder: "Pegá acá el texto o la afirmación que querés examinar...",
+    placeholder: "Primero escribí: Quiero analizar un texto",
+    howto: [
+      "Escribí «Quiero analizar un texto». La primera respuesta siempre es «Prompt procesado correctamente…»: es normal, significa que está listo.",
+      "Pegá el texto, la noticia o la afirmación que querés examinar.",
+      "Elegí el nivel de la respuesta: general, intermedio o especializado.",
+    ],
     systemPrompt: QUESTION_PROMPT + QUESTION_EXTRA,
   },
   {

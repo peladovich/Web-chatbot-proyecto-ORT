@@ -45,7 +45,7 @@ app.use("/api/tts", ttsLimiter);
 
 // Metadata pública de los modos. El `systemPrompt` nunca sale del servidor.
 app.get("/api/modes", (req, res) => {
-  const publicModes = modes.map(({ id, code, title, eyebrow, heading, subtext, placeholder }) => ({
+  const publicModes = modes.map(({ id, code, title, eyebrow, heading, subtext, placeholder, howto }) => ({
     id,
     code,
     title,
@@ -53,6 +53,7 @@ app.get("/api/modes", (req, res) => {
     heading,
     subtext,
     placeholder,
+    howto: howto || [],
   }));
   res.json(publicModes);
 });

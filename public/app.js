@@ -167,6 +167,18 @@ function setMode(modeKey) {
   if (subtextEl) subtextEl.innerText = meta.subtext;
   if (inputEl) inputEl.setAttribute("placeholder", meta.placeholder);
 
+  const howtoEl = document.getElementById("mode-howto");
+  if (howtoEl) {
+    const steps = meta.howto || [];
+    howtoEl.classList.toggle("hidden", !steps.length);
+    howtoEl.innerHTML = steps
+      .map(
+        (t, i) =>
+          `<li class="flex items-baseline gap-3 text-[14px] leading-relaxed text-on-surface-variant"><span class="font-mono text-[12px] text-outline">${String(i + 1).padStart(2, "0")}</span><span>${escapeHtml(t)}</span></li>`
+      )
+      .join("");
+  }
+
   clearConversation();
 }
 
