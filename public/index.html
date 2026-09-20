@@ -67,6 +67,30 @@
     ::view-transition-old(root) { z-index: 1; }
     ::view-transition-new(root) { z-index: 2147483646; }
 
+    /* Entre pantallas: la nueva entra subiendo con un fundido; la anterior se desenfoca un poco (al volver, al revés) */
+    html[data-vt="forward"]::view-transition-old(root) { animation: vtOutUp 620ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    html[data-vt="forward"]::view-transition-new(root) { animation: vtInUp 720ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    html[data-vt="back"]::view-transition-old(root) { animation: vtOutDown 620ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    html[data-vt="back"]::view-transition-new(root) { animation: vtInDown 720ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    html[data-vt="fade"]::view-transition-new(root) { animation: vtFadeIn 420ms ease both; }
+    @keyframes vtInUp { from { opacity: 0; transform: translateY(26px); filter: blur(5px); } }
+    @keyframes vtOutUp { to { transform: translateY(-14px) scale(0.992); filter: blur(3px); } }
+    @keyframes vtInDown { from { opacity: 0; transform: translateY(-26px); filter: blur(5px); } }
+    @keyframes vtOutDown { to { transform: translateY(14px) scale(0.992); filter: blur(3px); } }
+    @keyframes vtFadeIn { from { opacity: 0; } }
+
+    /* Entre módulos: solo el contenido se desliza hacia el lado de la pestaña; el header queda fijo */
+    html[data-vt="tab-next"] #view-modules main,
+    html[data-vt="tab-prev"] #view-modules main { view-transition-name: module-main; }
+    html[data-vt="tab-next"]::view-transition-old(module-main) { animation: vtSlideOutL 380ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+    html[data-vt="tab-next"]::view-transition-new(module-main) { animation: vtSlideInR 580ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    html[data-vt="tab-prev"]::view-transition-old(module-main) { animation: vtSlideOutR 380ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+    html[data-vt="tab-prev"]::view-transition-new(module-main) { animation: vtSlideInL 580ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    @keyframes vtSlideOutL { to { opacity: 0; transform: translateX(-56px); filter: blur(4px); } }
+    @keyframes vtSlideInR { from { opacity: 0; transform: translateX(56px); filter: blur(4px); } }
+    @keyframes vtSlideOutR { to { opacity: 0; transform: translateX(56px); filter: blur(4px); } }
+    @keyframes vtSlideInL { from { opacity: 0; transform: translateX(-56px); filter: blur(4px); } }
+
     /* Globo con lo conversado antes de cambiar de modo: conserva la paleta en la que se hizo */
     .palette-light {
       --c-background: 250 249 246; --c-surface-subtle: 243 242 238; --c-surface-container: 239 239 235;

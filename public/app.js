@@ -89,6 +89,42 @@ async function loadModes() {
   }
 }
 
+// Transiciones entre pantallas y entre módulos (View Transitions API).
+// El tipo ("forward", "back", "tab-next", "tab-prev", "fade") decide la animación en el CSS.
+const VIEW_RANK = { "view-inicio": 0, "view-login": 1, "view-selector": 2, "view-modules": 3, "view-manifesto": 4 };
+let vtActive = false; // hay una transición en curso
+let vtUpdating = false; // estamos dentro del cambio de pantalla de una transición
+let vtCurrent = null;
+
+function withTransition(kind, update) {
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const run = () => {
+    vtUpdating = true;
+    try {
+      update();
+    } finally {
+      vtUpdating = false;
+    }
+  };
+  if (vtUpdating || reduce || !document.startViewTransition) {
+    update();
+    return;
+  }
+  if (vtActive) {
+    // otra navegación llegó mientras la anterior se anima: se aplica detrás de ella, así la última siempre gana
+    vtCurrent.updateCallbackDone.then(run, run);
+    return;
+  }
+  vtActive = true;
+  document.documentElement.dataset.vt = kind;
+  const done = () => {
+    vtActive = false;
+    delete document.documentElement.dataset.vt;
+  };
+  vtCurrent = document.startViewTransition(run);
+  vtCurrent.finished.then(done, done);
+}
+
 // Enrutador que conmuta las vistas del SPA
 function routeTo(viewName) {
   currentRoute = viewName;
@@ -111,28 +147,37 @@ function routeTo(viewName) {
     }
   }
 
-  ["view-inicio", "view-login", "view-selector", "view-modules", "view-manifesto"].forEach((id) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (id === targetId) {
-      el.classList.remove("is-hidden");
-      el.classList.add("is-active");
-    } else {
-      el.classList.add("is-hidden");
-      el.classList.remove("is-active");
+  const swap = () => {
+    ["view-inicio", "view-login", "view-selector", "view-modules", "view-manifesto"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (id === targetId) {
+        el.classList.remove("is-hidden");
+        el.classList.add("is-active");
+      } else {
+        el.classList.add("is-hidden");
+        el.classList.remove("is-active");
+      }
+    });
+
+    if (targetId !== "view-modules" && !promptOn) {
+      promptOn = true;
+      updatePromptUI();
     }
-  });
+    if (targetId === "view-modules") {
+      const input = document.getElementById("user-input");
+      if (input) autoGrow(input);
+    }
 
-  if (targetId !== "view-modules" && !promptOn) {
-    promptOn = true;
-    updatePromptUI();
-  }
-  if (targetId === "view-modules") {
-    const input = document.getElementById("user-input");
-    if (input) autoGrow(input);
-  }
+    window.scrollTo(0, 0);
+  };
 
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  const fromId = document.querySelector(".view-panel.is-active")?.id;
+  if (fromId && fromId !== targetId) {
+    withTransition(VIEW_RANK[targetId] > VIEW_RANK[fromId] ? "forward" : "back", swap);
+  } else {
+    swap();
+  }
 }
 
 function routeToModule(modeKey) {
@@ -140,8 +185,21 @@ function routeToModule(modeKey) {
   routeTo("modules");
 }
 
-// Configuración activa del módulo (Cuestionar, Resolver, Imaginar)
+// Cambiar de módulo: si ya estás dentro de los módulos, el contenido se desliza hacia el lado de la pestaña elegida.
+const MODE_ORDER = ["question", "solve", "imagine"];
 function setMode(modeKey) {
+  const inModules = document.getElementById("view-modules")?.classList.contains("is-active");
+  if (inModules && modeKey !== currentMode && MODES[modeKey]) {
+    const kind = MODE_ORDER.indexOf(modeKey) > MODE_ORDER.indexOf(currentMode) ? "tab-next" : "tab-prev";
+    currentMode = modeKey; // se adelanta para que las pestañas pulsadas en rápida sucesión se comparen bien
+    withTransition(kind, () => applyMode(modeKey));
+  } else {
+    applyMode(modeKey);
+  }
+}
+
+// Configuración activa del módulo (Cuestionar, Resolver, Imaginar)
+function applyMode(modeKey) {
   currentMode = modeKey;
   if (!promptOn) {
     promptOn = true;
@@ -1315,6 +1373,10 @@ function openConversation(id) {
   const convo = readStore().find((c) => c.id === id);
   if (!convo) return;
   if (stopActiveAudio) stopActiveAudio();
+  withTransition("fade", () => restoreConversation(convo));
+}
+
+function restoreConversation(convo) {
   setMode(convo.mode); // limpia la pantalla y deja el modo listo
   routeTo("modules");
   if (convo.noPrompt) {
@@ -1338,7 +1400,7 @@ function openConversation(id) {
     });
   }
   setHistoryOpen(false);
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  window.scrollTo(0, 0);
 }
 
 function deleteConversation(id) {
