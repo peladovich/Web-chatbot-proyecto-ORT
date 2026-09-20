@@ -1073,22 +1073,55 @@ function runCircleSpread(x, y, apply) {
     .catch(() => {});
 }
 
+// Deja lo que ya se conversó dentro de un globo con la paleta en la que se hizo (la contraria a la nueva).
+function freezeConversation(wasPromptOn) {
+  const stream = document.getElementById("conversation-stream");
+  if (!stream) return false;
+  const live = Array.from(stream.children).filter((el) => !el.classList.contains("convo-bubble"));
+  if (!live.length) return false;
+
+  const bubble = document.createElement("section");
+  bubble.className = "convo-bubble space-y-8 " + (wasPromptOn ? "palette-light" : "palette-dark");
+  bubble.setAttribute("aria-label", wasPromptOn ? "Conversación con el prompt" : "Conversación sin el prompt");
+  const label = document.createElement("div");
+  label.className = "text-[11px] uppercase tracking-[0.18em] font-medium text-outline";
+  label.textContent = wasPromptOn ? "Con el prompt" : "Sin el prompt";
+  bubble.appendChild(label);
+
+  live.forEach((el) => {
+    // sin animaciones de entrada: al mover el nodo se volverían a reproducir
+    [el, ...el.querySelectorAll(".reveal-item, .msg-in")].forEach((n) => n.classList.remove("reveal-item", "msg-in"));
+    el.style.opacity = "1";
+    bubble.appendChild(el);
+  });
+  stream.appendChild(bubble);
+  return true;
+}
+
 function switchPrompt(enable, x, y) {
   const prefill = longestUserText();
   const carriedImages = currentMode === "imagine" ? (lastImages.length ? lastImages.slice() : pendingImages.slice()) : [];
+  const wasPromptOn = promptOn;
   runCircleSpread(x, y, () => {
+    const frozen = freezeConversation(wasPromptOn);
     promptOn = enable;
-    clearConversation(); // empieza una conversación nueva en el otro modo
+    currentConvoId = null; // lo que sigue es una conversación nueva en el otro modo
+    history = [];
+    lastImages = [];
+    if (stopActiveAudio) stopActiveAudio();
+    if (frozen) {
+      document.getElementById("empty-state-view")?.classList.add("hidden");
+      document.getElementById("conversation-stream")?.classList.remove("hidden");
+    }
     updatePromptUI();
     const input = document.getElementById("user-input");
-    if (input && prefill) {
+    if (input && prefill && !input.value.trim()) {
       input.value = prefill; // misma consulta para poder comparar
       autoGrow(input);
     }
-    if (carriedImages.length) {
-      pendingImages = carriedImages; // misma imagen en Imaginar
-      renderAttachPreview();
-    }
+    pendingImages = carriedImages; // misma imagen en Imaginar
+    renderAttachPreview();
+    if (frozen) document.querySelector(".convo-bubble:last-of-type")?.scrollIntoView({ block: "nearest" });
   });
 }
 

@@ -60,6 +60,29 @@
     ::view-transition-old(root) { z-index: 1; }
     ::view-transition-new(root) { z-index: 2147483646; }
 
+    /* Globo con lo conversado antes de cambiar de modo: conserva la paleta en la que se hizo */
+    .palette-light {
+      --c-background: 250 249 246; --c-surface-subtle: 243 242 238; --c-surface-container: 239 239 235;
+      --c-on-surface: 24 24 27; --c-on-surface-variant: 82 82 91; --c-outline: 113 113 122;
+      --c-outline-variant: 212 210 205; --c-border-subtle: 231 229 228;
+      color-scheme: light;
+    }
+    .palette-dark {
+      --c-background: 24 24 27; --c-surface-subtle: 37 37 41; --c-surface-container: 45 45 50;
+      --c-on-surface: 250 249 246; --c-on-surface-variant: 178 178 186; --c-outline: 145 145 155;
+      --c-outline-variant: 82 82 91; --c-border-subtle: 63 63 70;
+      color-scheme: dark;
+    }
+    .convo-bubble {
+      background: rgb(var(--c-background));
+      color: rgb(var(--c-on-surface));
+      border: 1px solid rgb(var(--c-border-subtle));
+      border-radius: 24px;
+      padding: 22px 24px;
+      box-shadow: 0 0 0 1px rgba(128, 128, 128, 0.18), 0 18px 40px -26px rgba(0, 0, 0, 0.45);
+    }
+    @media (max-width: 640px) { .convo-bubble { padding: 18px 16px; border-radius: 20px; } }
+
     /* Botón para probar con o sin el prompt */
     .prompt-toggle-icon {
       display: inline-block; width: 14px; height: 14px; border-radius: 9999px;
