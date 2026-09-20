@@ -167,6 +167,11 @@
     html.theme-inverted .text-red-700, .palette-dark .text-red-700 { color: #f87171; }
     @media (max-width: 640px) { .text-\[10px\], .text-\[11px\] { font-size: 12px; } }
 
+    /* Durante el círculo del cambio de tema no corre ninguna otra transición de color (evita redibujar todo a la vez) */
+    html[data-theme-switching] *:not(.prompt-toggle-icon),
+    html[data-theme-switching] *::before,
+    html[data-theme-switching] *::after { transition: none !important; }
+
     /* Botón para probar con o sin el prompt */
     .prompt-toggle-icon {
       display: inline-block; width: 14px; height: 14px; border-radius: 9999px;

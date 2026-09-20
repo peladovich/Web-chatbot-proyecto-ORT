@@ -143,7 +143,7 @@ function withTransition(kind, update) {
       .then(() => {
         document.documentElement.animate(
           { clipPath: ["circle(0px at " + p.x + "px " + p.y + "px)", "circle(" + radius + "px at " + p.x + "px " + p.y + "px)"] },
-          { duration: 520, easing: "cubic-bezier(0.22, 0.8, 0.3, 1)", pseudoElement: "::view-transition-new(root)" }
+          { duration: 520, easing: "cubic-bezier(0.45, 0.05, 0.2, 1)", pseudoElement: "::view-transition-new(root)" }
         );
       })
       .catch(() => {});
@@ -1189,13 +1189,18 @@ function runCircleSpread(x, y, apply) {
     apply();
     return;
   }
+  const root = document.documentElement;
   const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+  // Mientras el círculo crece se apagan las transiciones de color: el cambio de paleta lo hace el círculo, no cada elemento por su cuenta.
+  root.dataset.themeSwitching = "1";
   const transition = document.startViewTransition(apply);
+  const clear = () => delete root.dataset.themeSwitching;
+  transition.finished.then(clear, clear);
   transition.ready
     .then(() => {
-      document.documentElement.animate(
+      root.animate(
         { clipPath: ["circle(0px at " + x + "px " + y + "px)", "circle(" + radius + "px at " + x + "px " + y + "px)"] },
-        { duration: 750, easing: "cubic-bezier(0.16, 1, 0.3, 1)", pseudoElement: "::view-transition-new(root)" }
+        { duration: 650, easing: "cubic-bezier(0.45, 0.05, 0.2, 1)", pseudoElement: "::view-transition-new(root)" }
       );
     })
     .catch(() => {});
