@@ -27,7 +27,7 @@ const generateLimiter = rateLimit({
 });
 const ttsLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  max: 30,
   message: { error: "Demasiadas solicitudes de audio. Esperá un minuto e intentá de nuevo." },
 });
 

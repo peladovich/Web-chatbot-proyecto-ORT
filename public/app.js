@@ -692,17 +692,35 @@ function initVoicePicker() {
 // ============================================================
 // VOZ (texto a voz de OpenAI vía /api/tts)
 // ============================================================
-function prepareSpeechText(raw) {
-  let text = String(raw)
+// Divide el texto en partes de hasta ~3000 caracteres cortando en fin de oración, para poder leerlo entero.
+function splitForSpeech(raw, max = 3000) {
+  const text = String(raw)
     .replace(/[*_`#>|]/g, "")
     .replace(/\n{2,}/g, "\n\n")
     .trim();
-  if (text.length > 4000) {
-    const cut = text.slice(0, 4000);
-    const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf(".\n"));
-    text = end > 1500 ? cut.slice(0, end + 1) : cut;
+  const sentences = text.match(/[^.!?…\n]+(?:[.!?…]+|\n+|$)\s*/g) || [text];
+  const parts = [];
+  let cur = "";
+  for (const raw of sentences) {
+    let s = raw;
+    while (s.length > max) {
+      // frase larguísima: corte duro
+      if (cur.trim()) {
+        parts.push(cur.trim());
+        cur = "";
+      }
+      parts.push(s.slice(0, max));
+      s = s.slice(max);
+    }
+    if ((cur + s).length > max) {
+      if (cur.trim()) parts.push(cur.trim());
+      cur = s;
+    } else {
+      cur += s;
+    }
   }
-  return text;
+  if (cur.trim()) parts.push(cur.trim());
+  return parts.length ? parts : [text];
 }
 
 function createListenControl(getText) {
@@ -716,61 +734,88 @@ function createListenControl(getText) {
   wrap.appendChild(btn);
 
   const label = btn.querySelector(".listen-label");
-  let blobUrl = null;
-  let cachedVoice = null;
   let audio = null;
+  let run = 0; // cada reproducción tiene su número; al detener, las anteriores se descartan
   let busy = false;
+  let cache = { voice: null, n: 0, parts: [] }; // audios ya generados (uno por parte)
 
-  const reset = () => {
+  const stop = () => {
+    run++;
+    busy = false;
     btn.classList.remove("is-playing");
     label.textContent = "Escuchar";
-    busy = false;
     if (audio) {
       audio.pause();
       audio = null;
     }
-    if (stopActiveAudio === reset) stopActiveAudio = null;
+    if (stopActiveAudio === stop) stopActiveAudio = null;
   };
 
-  btn.addEventListener("click", async () => {
-    if (btn.classList.contains("is-playing") || busy) {
-      reset();
-      return;
+  const fetchPart = (chunks, i, voice) => {
+    if (!cache.parts[i]) {
+      cache.parts[i] = fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: chunks[i], voice }),
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || "No se pudo generar el audio.");
+          }
+          return URL.createObjectURL(await res.blob());
+        })
+        .catch((err) => {
+          cache.parts[i] = null; // que un reintento vuelva a pedirlo
+          throw err;
+        });
     }
-    if (stopActiveAudio) stopActiveAudio();
+    return cache.parts[i];
+  };
 
+  const play = async () => {
+    if (stopActiveAudio) stopActiveAudio();
+    const token = ++run;
     const voice = document.getElementById("voice-select")?.value || "coral";
+    const chunks = splitForSpeech(getText());
+    if (cache.voice !== voice || cache.n !== chunks.length) {
+      cache.parts.forEach((p) => p && p.then((u) => URL.revokeObjectURL(u)).catch(() => {}));
+      cache = { voice, n: chunks.length, parts: [] };
+    }
     busy = true;
     label.textContent = "Preparando voz…";
     try {
-      if (!blobUrl || cachedVoice !== voice) {
-        if (blobUrl) URL.revokeObjectURL(blobUrl);
-        const res = await fetch("/api/tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: prepareSpeechText(getText()), voice }),
+      for (let i = 0; i < chunks.length; i++) {
+        const url = await fetchPart(chunks, i, voice);
+        if (token !== run) return;
+        if (i + 1 < chunks.length) fetchPart(chunks, i + 1, voice).catch(() => {}); // deja lista la siguiente parte mientras suena esta
+        audio = new Audio(url);
+        const ended = new Promise((resolve, reject) => {
+          audio.addEventListener("ended", resolve);
+          audio.addEventListener("error", () => reject(new Error("No se pudo reproducir el audio.")));
         });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "No se pudo generar el audio.");
-        }
-        blobUrl = URL.createObjectURL(await res.blob());
-        cachedVoice = voice;
+        await audio.play();
+        if (token !== run) return;
+        btn.classList.add("is-playing");
+        label.textContent = chunks.length > 1 ? "Detener · " + (i + 1) + "/" + chunks.length : "Detener";
+        stopActiveAudio = stop;
+        await ended;
+        if (token !== run) return;
       }
-      if (!busy) return; // el usuario canceló mientras se generaba
-      audio = new Audio(blobUrl);
-      audio.addEventListener("ended", reset);
-      await audio.play();
-      btn.classList.add("is-playing");
-      label.textContent = "Detener";
-      stopActiveAudio = reset;
+      stop();
     } catch (err) {
-      reset();
+      if (token !== run) return;
+      stop();
       label.textContent = err.message || "No se pudo reproducir.";
       setTimeout(() => {
         if (!btn.classList.contains("is-playing") && !busy) label.textContent = "Escuchar";
       }, 3500);
     }
+  };
+
+  btn.addEventListener("click", () => {
+    if (btn.classList.contains("is-playing") || busy) stop();
+    else play();
   });
 
   return wrap;
