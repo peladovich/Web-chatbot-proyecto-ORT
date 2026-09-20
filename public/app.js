@@ -160,9 +160,9 @@ function setMode(modeKey) {
     const btn = document.getElementById(id);
     if (!btn) return;
     if (id === meta.navId) {
-      btn.className = "py-1 text-on-surface font-semibold border-b border-on-surface transition-colors cursor-pointer";
+      btn.className = "py-2.5 sm:py-1 whitespace-nowrap text-on-surface font-semibold border-b border-on-surface transition-colors cursor-pointer";
     } else {
-      btn.className = "py-1 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer";
+      btn.className = "py-2.5 sm:py-1 whitespace-nowrap text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer";
     }
   });
 
@@ -1417,7 +1417,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const userInput = document.getElementById("user-input");
   if (userInput) {
     userInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      // en celular Enter hace salto de línea y se envía con la flecha ↗
+      if (e.key === "Enter" && !e.shiftKey && !e.isComposing && !window.matchMedia("(pointer: coarse)").matches) {
         e.preventDefault();
         handleSendMessage();
       }

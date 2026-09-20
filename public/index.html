@@ -1,6 +1,13 @@
 <!DOCTYPE html><html class="h-full bg-background text-on-surface antialiased selection:bg-surface-container selection:text-on-surface" lang="es"><head>
 <meta charset="utf-8">
-<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+<meta content="Second Thought: tres espacios para pensar dos veces. Analizá la confiabilidad de un texto, resolvé matemática con un tutor que te guía y convertí una foto en un relato para escuchar." name="description">
+<meta content="#FAF9F6" name="theme-color">
+<meta content="Second Thought" property="og:title">
+<meta content="Analizá textos, aprendé matemática paso a paso y escuchá relatos de imágenes. Un proyecto de Santiago Yañez y Julian Rodriguez (UTU, ITI)." property="og:description">
+<meta content="website" property="og:type">
+<meta content="es_UY" property="og:locale">
+<link href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2318181B'/%3E%3Cpath d='M16 7a9 9 0 1 0 0 18z' fill='%23FAF9F6'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23FAF9F6' stroke-width='1.6'/%3E%3C/svg%3E" rel="icon">
 <title>SECOND THOUGHT — Espacio de Pensamiento y Conversación</title>
 <link href="https://fonts.googleapis.com" rel="preconnect">
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
@@ -82,6 +89,18 @@
       box-shadow: 0 0 0 1px rgba(128, 128, 128, 0.18), 0 18px 40px -26px rgba(0, 0, 0, 0.45);
     }
     @media (max-width: 640px) { .convo-bubble { padding: 18px 16px; border-radius: 20px; } }
+
+    /* Ayuda de envío según el dispositivo (en celular no hay Shift + Enter) */
+    .hint-touch { display: none; }
+    @media (pointer: coarse) { .hint-desktop { display: none; } .hint-touch { display: inline; } }
+
+    /* Pantalla completa real en iPhone (la barra de Safari no tapa el contenido) */
+    @supports (min-height: 100dvh) { html .min-h-screen { min-height: 100dvh; } }
+    body { padding-bottom: env(safe-area-inset-bottom); }
+
+    /* Contraste y tamaño mínimo de lectura */
+    html.theme-inverted .text-red-700, .palette-dark .text-red-700 { color: #f87171; }
+    @media (max-width: 640px) { .text-\[10px\], .text-\[11px\] { font-size: 12px; } }
 
     /* Botón para probar con o sin el prompt */
     .prompt-toggle-icon {
@@ -283,9 +302,8 @@
     .history-panel {
       transform: translateX(-100%);
       transition: transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
-      box-shadow: 30px 0 60px -30px rgba(24, 24, 27, 0.35);
     }
-    .history-drawer.is-open .history-panel { transform: translateX(0); }
+    .history-drawer.is-open .history-panel { transform: translateX(0); box-shadow: 30px 0 60px -30px rgba(24, 24, 27, 0.35); }
     .history-item { opacity: 0; transform: translateX(-10px); }
     .history-drawer.is-open .history-item {
       animation: historyIn 480ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -497,22 +515,22 @@
 <!-- ======================================================== -->
 <section class="view-panel min-h-screen flex flex-col justify-between p-8 md:p-14 w-full is-hidden" id="view-selector">
 <!-- Navegación superior -->
-<header class="w-full flex justify-between items-center text-[12px]">
+<header class="w-full flex flex-wrap justify-between items-center gap-x-4 gap-y-2 text-[12px]">
 <div class="flex items-center space-x-3">
-<button class="text-on-surface-variant hover:text-on-surface transition-colors flex items-center space-x-1.5 uppercase tracking-wider cursor-pointer" onclick="routeTo('inicio')" title="Volver al inicio" type="button">
+<button class="text-on-surface-variant hover:text-on-surface transition-colors flex items-center space-x-1.5 uppercase tracking-wider cursor-pointer whitespace-nowrap py-2 sm:py-0" onclick="routeTo('inicio')" title="Volver al inicio" type="button">
 <span class="">←</span>
 <span class="">Inicio</span>
 </button>
-<span class="text-border-subtle">|</span>
-<button class="font-semibold text-on-surface uppercase tracking-wider hover:opacity-75 transition-opacity cursor-pointer text-left" onclick="routeTo('inicio')" title="Ir al inicio" type="button">
+<span class="hidden sm:inline text-border-subtle">|</span>
+<button class="font-semibold text-on-surface uppercase tracking-wider hover:opacity-75 transition-opacity cursor-pointer text-left whitespace-nowrap py-2 sm:py-0" onclick="routeTo('inicio')" title="Ir al inicio" type="button">
             SECOND THOUGHT
           </button>
-<span class="text-border-subtle">|</span>
-<span class="text-outline uppercase tracking-wider">SELECTOR</span>
+<span class="hidden sm:inline text-border-subtle">|</span>
+<span class="hidden sm:inline text-outline uppercase tracking-wider">SELECTOR</span>
 </div>
 <div class="flex items-center gap-5">
-<button class="text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-wider text-[11px] cursor-pointer inline-flex items-center gap-1.5" data-open-history type="button">Historial<span class="history-count text-outline"></span></button>
-<button class="text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-wider text-[11px] cursor-pointer" onclick="routeTo('inicio')" title="Volver al inicio" type="button">
+<button class="text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-wider text-[12px] sm:text-[11px] cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap py-2 sm:py-0" data-open-history type="button">Historial<span class="history-count text-outline"></span></button>
+<button class="hidden sm:inline text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-wider text-[11px] cursor-pointer whitespace-nowrap" onclick="routeTo('inicio')" title="Volver al inicio" type="button">
           Inicio / Salir
         </button>
 </div>
@@ -544,13 +562,13 @@
 <div class="view-panel min-h-screen flex-col justify-between w-full is-hidden" id="view-modules">
 <!-- Header Superior Mínimo y de Retorno -->
 <header class="w-full bg-background border-b border-border-subtle z-20">
-<div class="max-w-6xl mx-auto px-6 md:px-12 py-5 flex items-center justify-between">
-<div class="flex items-center space-x-3 sm:space-x-5"><button class="text-on-surface-variant hover:text-on-surface transition-colors flex items-center space-x-1.5 text-[13px] uppercase tracking-wider cursor-pointer" onclick="routeTo('selector')" title="Volver al selector" type="button">
+<div class="max-w-6xl mx-auto px-6 md:px-12 py-4 sm:py-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+<div class="flex items-center space-x-3 sm:space-x-5"><button class="text-on-surface-variant hover:text-on-surface transition-colors flex items-center space-x-1.5 text-[13px] uppercase tracking-wider cursor-pointer whitespace-nowrap py-2 sm:py-0" onclick="routeTo('selector')" title="Volver al selector" type="button">
 <span class="">←</span>
 <span class="">Volver</span>
 </button>
 <span class="text-border-subtle">|</span>
-<button class="text-[14px] font-semibold tracking-wider text-on-surface uppercase hover:opacity-75 transition-opacity text-left cursor-pointer" onclick="routeTo('inicio')" title="Ir al inicio" type="button">
+<button class="text-[14px] font-semibold tracking-wider text-on-surface uppercase hover:opacity-75 transition-opacity text-left cursor-pointer whitespace-nowrap py-2 sm:py-0" onclick="routeTo('inicio')" title="Ir al inicio" type="button">
 SECOND THOUGHT
 </button>
 <span class="text-border-subtle hidden md:inline">|</span>
@@ -561,15 +579,15 @@ SECOND THOUGHT
 <span class="hidden text-outline" id="prompt-badge">· SIN PROMPT</span>
 </div></div>
 <!-- Selector directo de pestañas de módulo -->
-<nav aria-label="Selector de Modo" class="flex items-center space-x-3 sm:space-x-6 text-[13px]">
-<button class="py-1 text-on-surface font-semibold border-b border-on-surface transition-colors cursor-pointer" id="nav-btn-question" onclick="setMode('question')" type="button">
-<span class="text-outline-variant mr-1">01</span> Cuestionar
+<nav aria-label="Selector de Modo" class="w-full sm:w-auto flex items-center justify-between sm:justify-start sm:space-x-6 text-[13px] border-t border-border-subtle sm:border-0 pt-1 sm:pt-0">
+<button class="py-2.5 sm:py-1 whitespace-nowrap text-on-surface font-semibold border-b border-on-surface transition-colors cursor-pointer" id="nav-btn-question" onclick="setMode('question')" type="button">
+<span class="text-outline mr-1">01</span> Cuestionar
             </button>
-<button class="py-1 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" id="nav-btn-solve" onclick="setMode('solve')" type="button">
+<button class="py-2.5 sm:py-1 whitespace-nowrap text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" id="nav-btn-solve" onclick="setMode('solve')" type="button">
 <span class="text-outline mr-1">02</span> Resolver
             </button>
-<button class="py-1 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" id="nav-btn-imagine" onclick="setMode('imagine')" type="button">
-<span class="text-outline-variant mr-1">03</span> Imaginar
+<button class="py-2.5 sm:py-1 whitespace-nowrap text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" id="nav-btn-imagine" onclick="setMode('imagine')" type="button">
+<span class="text-outline mr-1">03</span> Imaginar
             </button>
 <span class="hidden sm:inline text-border-subtle">|</span>
 <button class="hidden sm:inline-flex items-center gap-1.5 py-1 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer" data-open-history type="button">Historial<span class="history-count text-[11px] text-outline"></span></button>
@@ -617,20 +635,21 @@ SECOND THOUGHT
 <input accept="image/*" class="hidden" id="file-input" multiple type="file">
 </div>
 <div class="relative flex items-end justify-between gap-4">
-<textarea autocomplete="off" class="w-full resize-none min-h-[44px] max-h-56 overflow-hidden bg-transparent border-0 border-b border-transparent focus:border-on-surface focus:ring-0 px-0 py-2.5 text-[16px] leading-relaxed text-on-surface placeholder:text-outline/60 focus:outline-none transition-colors" id="user-input" placeholder="Escribí una creencia, afirmación o mito para examinar..." rows="1"></textarea>
+<textarea autocomplete="off" class="w-full resize-none min-h-[44px] max-h-56 overflow-hidden bg-transparent border-0 border-b border-transparent focus:border-on-surface focus:ring-0 px-0 py-2.5 text-[16px] leading-relaxed text-on-surface placeholder:text-outline focus:outline-none transition-colors" id="user-input" placeholder="Escribí una creencia, afirmación o mito para examinar..." rows="1"></textarea>
 <button aria-label="Enviar" class="text-on-surface hover:opacity-60 transition-opacity text-[18px] px-2 py-2 cursor-pointer font-medium" id="btn-send" onclick="handleSendMessage()" type="button">
                 ↗
               </button>
 </div>
 <div class="mt-3 flex flex-wrap items-center justify-between text-[12px] text-on-surface-variant gap-3">
-<span class="text-outline">Enter para enviar · Shift + Enter para nueva línea</span>
+<span class="hint-desktop text-outline">Enter para enviar · Shift + Enter para nueva línea</span>
+<span class="hint-touch text-outline">Tocá ↗ para enviar</span>
 <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
-<button aria-pressed="false" class="prompt-toggle inline-flex items-center gap-2 uppercase font-medium tracking-wide hover:text-on-surface transition-colors cursor-pointer" data-toggle-prompt type="button">
+<button aria-pressed="false" class="prompt-toggle inline-flex items-center gap-2 uppercase font-medium tracking-wide hover:text-on-surface transition-colors cursor-pointer w-full sm:w-auto py-2 sm:py-0" data-toggle-prompt type="button">
 <span aria-hidden="true" class="prompt-toggle-icon"></span>
 <span class="prompt-toggle-label">Probar sin el prompt</span>
 </button>
-<span class="text-border-subtle">·</span>
-<span class="hidden items-center gap-x-5" id="voice-wrap">
+<span class="hidden sm:inline text-border-subtle">·</span>
+<span class="hidden items-center gap-x-5 w-full sm:w-auto" id="voice-wrap">
 <div class="inline-flex items-center gap-3">
 <span class="uppercase tracking-wide font-medium">Voz</span>
 <select aria-label="Voz" id="voice-select">
@@ -642,15 +661,15 @@ SECOND THOUGHT
 <option value="alloy">Alloy</option>
 </select>
 </div>
-<span class="text-border-subtle">·</span>
+<span class="hidden sm:inline text-border-subtle">·</span>
 </span>
-<button class="hover:text-on-surface transition-colors uppercase font-medium tracking-wide cursor-pointer" onclick="loadExampleScenario()" type="button">
+<button class="hover:text-on-surface transition-colors uppercase font-medium tracking-wide cursor-pointer py-2 sm:py-0" onclick="loadExampleScenario()" type="button">
                   PROBAR UN EJEMPLO ↗
                 </button>
-<span class="text-border-subtle">·</span>
-<button class="hover:text-on-surface transition-colors cursor-pointer inline-flex items-center gap-1.5" data-open-history type="button">Historial<span class="history-count text-outline"></span></button>
-<span class="text-border-subtle">·</span>
-<button class="hover:text-on-surface transition-colors cursor-pointer" onclick="clearConversation()" type="button">
+<span class="hidden sm:inline text-border-subtle">·</span>
+<button class="hover:text-on-surface transition-colors cursor-pointer inline-flex items-center gap-1.5 py-2 sm:py-0" data-open-history type="button">Historial<span class="history-count text-outline"></span></button>
+<span class="hidden sm:inline text-border-subtle">·</span>
+<button class="hover:text-on-surface transition-colors cursor-pointer py-2 sm:py-0" onclick="clearConversation()" type="button">
                   Nueva conversación
                 </button>
 </div>
