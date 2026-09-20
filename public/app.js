@@ -1048,7 +1048,7 @@ function longestUserText() {
   let best = "";
   history.forEach((m) => {
     if (m.role !== "user") return;
-    const t = m.content.replace(/s*[[^]]*imagen[^]]*]s*$/i, "").trim();
+    const t = m.content.replace(/\s*\[[^\]]*imagen[^\]]*\]\s*$/i, "").trim();
     if (t.length > best.length) best = t;
   });
   return best;
