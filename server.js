@@ -76,6 +76,7 @@ app.post("/api/generate", async (req, res) => {
     }
 
     const { mode, userInput, history, images } = req.body;
+    const noPrompt = req.body.noPrompt === true; // comparación: el modelo responde sin el prompt del modo
     const text = typeof userInput === "string" ? userInput.trim() : "";
 
     const selected = modes.find((m) => m.id === mode);
@@ -129,7 +130,7 @@ app.post("/api/generate", async (req, res) => {
     const completion = await openai.chat.completions.create({
       model: "gpt-5.6-luna",
       messages: [
-        { role: "system", content: selected.systemPrompt },
+        ...(noPrompt ? [] : [{ role: "system", content: selected.systemPrompt }]),
         ...safeHistory,
         { role: "user", content: userContent },
       ],

@@ -9,6 +9,7 @@ let history = []; // [{ role: "user"|"assistant", content }] — se resetea al c
 let pendingImages = []; // data URLs listas para enviar (solo modo Imaginar)
 let lastImages = []; // últimas imágenes enviadas: viajan de nuevo si el usuario responde solo con texto
 let stopActiveAudio = null;
+let promptOn = true; // false = modo comparación: el modelo responde sin el prompt y el tema se invierte
 const MAX_HISTORY_TURNS = 12;
 const MAX_IMAGES = 3;
 const MAX_IMAGE_CHARS = 1_200_000;
@@ -122,6 +123,10 @@ function routeTo(viewName) {
     }
   });
 
+  if (targetId !== "view-modules" && !promptOn) {
+    promptOn = true;
+    updatePromptUI();
+  }
   if (targetId === "view-modules") {
     const input = document.getElementById("user-input");
     if (input) autoGrow(input);
@@ -138,6 +143,10 @@ function routeToModule(modeKey) {
 // Configuración activa del módulo (Cuestionar, Resolver, Imaginar)
 function setMode(modeKey) {
   currentMode = modeKey;
+  if (!promptOn) {
+    promptOn = true;
+    updatePromptUI();
+  }
   syncModeUI();
   const meta = MODES[modeKey];
   if (!meta) return;
@@ -469,7 +478,27 @@ function inlineFormat(raw) {
     .replace(/`([^`]+)`/g, '<code class="font-mono text-[0.92em] bg-surface-subtle px-1">$1</code>');
 }
 
+// Pasa la notación LaTeX que a veces escribe el modelo sin prompt a texto legible.
+function cleanMath(t) {
+  return t
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_, m) => "\n\n" + m.trim() + "\n\n")
+    .replace(/\\\(([\s\S]*?)\\\)/g, "$1")
+    .replace(/\\boxed\{([^}]*)\}/g, "$1")
+    .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, "($1)/($2)")
+    .replace(/\\sqrt\{([^}]*)\}/g, "√($1)")
+    .replace(/\\(?:text|mathrm)\{([^}]*)\}/g, "$1")
+    .replace(/\\times/g, "×")
+    .replace(/\\cdot/g, "·")
+    .replace(/\\div/g, "÷")
+    .replace(/\\approx/g, "≈")
+    .replace(/\\neq/g, "≠")
+    .replace(/\\leq?/g, "≤")
+    .replace(/\\geq?/g, "≥")
+    .replace(/\\pi/g, "π");
+}
+
 function renderRichText(text) {
+  text = cleanMath(text);
   const lines = text.replace(/\r/g, "").split("\n");
   const out = [];
   let i = 0;
@@ -954,6 +983,7 @@ async function handleSendMessage() {
         mode: currentMode,
         userInput: text,
         images,
+        noPrompt: !promptOn,
         history: history.slice(-MAX_HISTORY_TURNS * 2),
       }),
     });
@@ -990,6 +1020,88 @@ async function handleSendMessage() {
     if (sendBtn) sendBtn.disabled = false;
     input.focus();
   }
+}
+
+// ============================================================
+// COMPARAR CON Y SIN EL PROMPT (tema invertido + círculo que se expande)
+// ============================================================
+function updatePromptUI() {
+  document.documentElement.classList.toggle("theme-inverted", !promptOn);
+  document.querySelectorAll("[data-toggle-prompt]").forEach((b) => {
+    b.setAttribute("aria-pressed", String(!promptOn));
+    b.classList.toggle("is-off", !promptOn);
+    const label = b.querySelector(".prompt-toggle-label");
+    if (label) label.textContent = promptOn ? "Probar sin el prompt" : "Volver a probar con el prompt";
+  });
+  document.getElementById("prompt-badge")?.classList.toggle("hidden", promptOn);
+  const note = document.getElementById("compare-note");
+  if (note) {
+    note.classList.toggle("hidden", promptOn);
+    note.textContent = promptOn
+      ? ""
+      : "Modo comparación: acá responde el modelo solo, sin el prompt de " + (MODES[currentMode]?.title || "este modo") + ". Enviá la misma consulta y compará las respuestas.";
+  }
+}
+
+// Mensaje del usuario más largo de la conversación actual (es el que conviene repetir para comparar).
+function longestUserText() {
+  let best = "";
+  history.forEach((m) => {
+    if (m.role !== "user") return;
+    const t = m.content.replace(/s*[[^]]*imagen[^]]*]s*$/i, "").trim();
+    if (t.length > best.length) best = t;
+  });
+  return best;
+}
+
+// Círculo que crece desde (x, y) revelando el tema nuevo. Sin View Transitions o con "reducir movimiento", cambia directo.
+function runCircleSpread(x, y, apply) {
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!document.startViewTransition || reduce) {
+    apply();
+    return;
+  }
+  const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+  const transition = document.startViewTransition(apply);
+  transition.ready
+    .then(() => {
+      document.documentElement.animate(
+        { clipPath: ["circle(0px at " + x + "px " + y + "px)", "circle(" + radius + "px at " + x + "px " + y + "px)"] },
+        { duration: 750, easing: "cubic-bezier(0.16, 1, 0.3, 1)", pseudoElement: "::view-transition-new(root)" }
+      );
+    })
+    .catch(() => {});
+}
+
+function switchPrompt(enable, x, y) {
+  const prefill = longestUserText();
+  const carriedImages = currentMode === "imagine" ? (lastImages.length ? lastImages.slice() : pendingImages.slice()) : [];
+  runCircleSpread(x, y, () => {
+    promptOn = enable;
+    clearConversation(); // empieza una conversación nueva en el otro modo
+    updatePromptUI();
+    const input = document.getElementById("user-input");
+    if (input && prefill) {
+      input.value = prefill; // misma consulta para poder comparar
+      autoGrow(input);
+    }
+    if (carriedImages.length) {
+      pendingImages = carriedImages; // misma imagen en Imaginar
+      renderAttachPreview();
+    }
+  });
+}
+
+function initPromptToggle() {
+  document.querySelectorAll("[data-toggle-prompt]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      if (isSending) return;
+      const r = btn.getBoundingClientRect();
+      const fromMouse = e.detail > 0 && (e.clientX || e.clientY);
+      switchPrompt(!promptOn, fromMouse ? e.clientX : r.left + r.width / 2, fromMouse ? e.clientY : r.top + r.height / 2);
+    });
+  });
+  updatePromptUI();
 }
 
 // ============================================================
@@ -1045,7 +1157,7 @@ function persistExchange(userMsg, answer) {
   if (convo) {
     list.splice(list.indexOf(convo), 1);
   } else {
-    convo = { id: newId(), mode: currentMode, title: "", createdAt: now, updatedAt: now, messages: [] };
+    convo = { id: newId(), mode: currentMode, noPrompt: !promptOn, title: "", createdAt: now, updatedAt: now, messages: [] };
     currentConvoId = convo.id;
   }
   convo.messages.push(userMsg, { role: "assistant", text: answer });
@@ -1084,7 +1196,7 @@ function renderHistoryList() {
       return (
         '<div class="history-item relative' + (c.id === currentConvoId ? " is-current" : "") + '" data-id="' + escapeHtml(c.id) + '" style="--i:' + Math.min(i, 12) + '">' +
         '<button class="history-row w-full text-left px-5 py-3.5 cursor-pointer" data-open="' + escapeHtml(c.id) + '" type="button">' +
-        '<div class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-outline"><span>' + escapeHtml(meta.code + " · " + meta.title) + "</span><span>·</span><span>" + relativeTime(c.updatedAt) + "</span></div>" +
+        '<div class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-outline"><span>' + escapeHtml(meta.code + " · " + meta.title) + "</span><span>·</span><span>" + relativeTime(c.updatedAt) + "</span>" + (c.noPrompt ? "<span>·</span><span>SIN PROMPT</span>" : "") + "</div>" +
         '<div class="mt-1 pr-8 text-[14px] leading-snug text-on-surface line-clamp-2">' + escapeHtml(c.title || "Conversación") + "</div>" +
         "</button>" +
         '<button aria-label="Eliminar conversación" class="history-del absolute right-3 top-3.5 h-6 w-6 text-[18px] leading-none text-on-surface-variant hover:text-on-surface cursor-pointer" data-del="' + escapeHtml(c.id) + '" type="button">×</button>' +
@@ -1127,6 +1239,10 @@ function openConversation(id) {
   if (stopActiveAudio) stopActiveAudio();
   setMode(convo.mode); // limpia la pantalla y deja el modo listo
   routeTo("modules");
+  if (convo.noPrompt) {
+    promptOn = false;
+    updatePromptUI();
+  }
   currentConvoId = convo.id;
   history = convo.messages.map((m) => ({
     role: m.role,
@@ -1203,6 +1319,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderAccordion();
   initVoicePicker();
   initHistory();
+  initPromptToggle();
 
   const loginForm = document.getElementById("login-form");
   if (loginForm) loginForm.addEventListener("submit", handleLoginSubmit);
