@@ -92,6 +92,19 @@ async function loadModes() {
 // Transiciones entre pantallas y entre módulos (View Transitions API).
 // El tipo ("forward", "back", "tab-next", "tab-prev", "fade") decide la animación en el CSS.
 const VIEW_RANK = { "view-inicio": 0, "view-login": 1, "view-selector": 2, "view-modules": 3, "view-manifesto": 4 };
+// Estilo de la animación: se elige con ?anim=... en el link y queda guardado en el navegador.
+const ANIM_STYLES = ["suave", "fundido", "deslizar", "zoom", "circulo", "sin"];
+let animStyle = "suave";
+try {
+  const fromUrl = new URLSearchParams(location.search).get("anim");
+  if (ANIM_STYLES.includes(fromUrl)) localStorage.setItem("st-anim", fromUrl);
+  const saved = localStorage.getItem("st-anim");
+  animStyle = ANIM_STYLES.includes(fromUrl) ? fromUrl : ANIM_STYLES.includes(saved) ? saved : "suave";
+} catch {}
+document.documentElement.dataset.anim = animStyle;
+let lastPointer = null;
+document.addEventListener("pointerdown", (e) => (lastPointer = { x: e.clientX, y: e.clientY }), true);
+
 let vtActive = false; // hay una transición en curso
 let vtUpdating = false; // estamos dentro del cambio de pantalla de una transición
 let vtCurrent = null;
@@ -106,7 +119,7 @@ function withTransition(kind, update) {
       vtUpdating = false;
     }
   };
-  if (vtUpdating || reduce || !document.startViewTransition) {
+  if (vtUpdating || reduce || animStyle === "sin" || !document.startViewTransition) {
     update();
     return;
   }
@@ -123,6 +136,18 @@ function withTransition(kind, update) {
   };
   vtCurrent = document.startViewTransition(run);
   vtCurrent.finished.then(done, done);
+  if (animStyle === "circulo" && !kind.startsWith("tab")) {
+    const p = lastPointer || { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    const radius = Math.hypot(Math.max(p.x, window.innerWidth - p.x), Math.max(p.y, window.innerHeight - p.y));
+    vtCurrent.ready
+      .then(() => {
+        document.documentElement.animate(
+          { clipPath: ["circle(0px at " + p.x + "px " + p.y + "px)", "circle(" + radius + "px at " + p.x + "px " + p.y + "px)"] },
+          { duration: 520, easing: "cubic-bezier(0.22, 0.8, 0.3, 1)", pseudoElement: "::view-transition-new(root)" }
+        );
+      })
+      .catch(() => {});
+  }
 }
 
 // Enrutador que conmuta las vistas del SPA

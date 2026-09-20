@@ -67,29 +67,70 @@
     ::view-transition-old(root) { z-index: 1; }
     ::view-transition-new(root) { z-index: 2147483646; }
 
-    /* Entre pantallas: la nueva entra subiendo con un fundido; la anterior se desenfoca un poco (al volver, al revés) */
-    html[data-vt="forward"]::view-transition-old(root) { animation: vtOutUp 620ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-    html[data-vt="forward"]::view-transition-new(root) { animation: vtInUp 720ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-    html[data-vt="back"]::view-transition-old(root) { animation: vtOutDown 620ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-    html[data-vt="back"]::view-transition-new(root) { animation: vtInDown 720ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-    html[data-vt="fade"]::view-transition-new(root) { animation: vtFadeIn 420ms ease both; }
-    @keyframes vtInUp { from { opacity: 0; transform: translateY(26px); filter: blur(5px); } }
-    @keyframes vtOutUp { to { transform: translateY(-14px) scale(0.992); filter: blur(3px); } }
-    @keyframes vtInDown { from { opacity: 0; transform: translateY(-26px); filter: blur(5px); } }
-    @keyframes vtOutDown { to { transform: translateY(14px) scale(0.992); filter: blur(3px); } }
-    @keyframes vtFadeIn { from { opacity: 0; } }
+    /* Transiciones de navegación. Solo opacidad y movimiento (los resuelve la GPU): sin desenfoque, para que sean fluidas.
+       Estilo elegible con ?anim=suave | fundido | deslizar | zoom | circulo | sin */
+    html[data-vt]::view-transition-old(root),
+    html[data-vt]::view-transition-new(root) {
+      animation-duration: 260ms;
+      animation-timing-function: cubic-bezier(0.22, 0.8, 0.3, 1);
+      animation-fill-mode: both;
+    }
+    /* suave (por defecto): la pantalla nueva sube un poco mientras aparece */
+    html[data-vt="forward"]::view-transition-new(root) { animation-name: vtRiseIn; }
+    html[data-vt="back"]::view-transition-new(root) { animation-name: vtDropIn; }
+    html[data-vt="fade"]::view-transition-new(root) { animation-name: vtFade; }
+    @keyframes vtRiseIn { from { opacity: 0; transform: translateY(14px); } }
+    @keyframes vtDropIn { from { opacity: 0; transform: translateY(-14px); } }
+    @keyframes vtFade { from { opacity: 0; } }
+
+    /* fundido: solo aparece */
+    html[data-anim="fundido"][data-vt="forward"]::view-transition-new(root),
+    html[data-anim="fundido"][data-vt="back"]::view-transition-new(root) { animation-name: vtFade; animation-duration: 220ms; }
+
+    /* deslizar: la pantalla nueva empuja a la anterior hacia un costado */
+    html[data-anim="deslizar"][data-vt="forward"]::view-transition-new(root) { animation-name: vtPushInR; }
+    html[data-anim="deslizar"][data-vt="forward"]::view-transition-old(root) { animation-name: vtPushOutL; }
+    html[data-anim="deslizar"][data-vt="back"]::view-transition-new(root) { animation-name: vtPushInL; }
+    html[data-anim="deslizar"][data-vt="back"]::view-transition-old(root) { animation-name: vtPushOutR; }
+    @keyframes vtPushInR { from { opacity: 0; transform: translateX(48px); } }
+    @keyframes vtPushOutL { to { opacity: 0; transform: translateX(-48px); } }
+    @keyframes vtPushInL { from { opacity: 0; transform: translateX(-48px); } }
+    @keyframes vtPushOutR { to { opacity: 0; transform: translateX(48px); } }
+
+    /* zoom: la nueva crece desde un poco más chica; la anterior se agranda y desaparece */
+    html[data-anim="zoom"][data-vt="forward"]::view-transition-new(root) { animation-name: vtZoomIn; }
+    html[data-anim="zoom"][data-vt="forward"]::view-transition-old(root) { animation-name: vtZoomOut; }
+    html[data-anim="zoom"][data-vt="back"]::view-transition-new(root) { animation-name: vtZoomInBack; }
+    html[data-anim="zoom"][data-vt="back"]::view-transition-old(root) { animation-name: vtZoomOutBack; }
+    @keyframes vtZoomIn { from { opacity: 0; transform: scale(0.96); } }
+    @keyframes vtZoomOut { to { opacity: 0; transform: scale(1.03); } }
+    @keyframes vtZoomInBack { from { opacity: 0; transform: scale(1.04); } }
+    @keyframes vtZoomOutBack { to { opacity: 0; transform: scale(0.96); } }
+
+    /* circulo: la pantalla nueva se abre como un círculo desde donde tocaste (lo maneja el JavaScript) */
+    html[data-anim="circulo"][data-vt="forward"]::view-transition-new(root),
+    html[data-anim="circulo"][data-vt="back"]::view-transition-new(root),
+    html[data-anim="circulo"][data-vt="fade"]::view-transition-new(root) { animation: none; }
 
     /* Entre módulos: solo el contenido se desliza hacia el lado de la pestaña; el header queda fijo */
     html[data-vt="tab-next"] #view-modules main,
     html[data-vt="tab-prev"] #view-modules main { view-transition-name: module-main; }
-    html[data-vt="tab-next"]::view-transition-old(module-main) { animation: vtSlideOutL 380ms cubic-bezier(0.4, 0, 0.2, 1) both; }
-    html[data-vt="tab-next"]::view-transition-new(module-main) { animation: vtSlideInR 580ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-    html[data-vt="tab-prev"]::view-transition-old(module-main) { animation: vtSlideOutR 380ms cubic-bezier(0.4, 0, 0.2, 1) both; }
-    html[data-vt="tab-prev"]::view-transition-new(module-main) { animation: vtSlideInL 580ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-    @keyframes vtSlideOutL { to { opacity: 0; transform: translateX(-56px); filter: blur(4px); } }
-    @keyframes vtSlideInR { from { opacity: 0; transform: translateX(56px); filter: blur(4px); } }
-    @keyframes vtSlideOutR { to { opacity: 0; transform: translateX(56px); filter: blur(4px); } }
-    @keyframes vtSlideInL { from { opacity: 0; transform: translateX(-56px); filter: blur(4px); } }
+    html[data-vt="tab-next"]::view-transition-old(module-main),
+    html[data-vt="tab-next"]::view-transition-new(module-main),
+    html[data-vt="tab-prev"]::view-transition-old(module-main),
+    html[data-vt="tab-prev"]::view-transition-new(module-main) {
+      animation-duration: 240ms;
+      animation-timing-function: cubic-bezier(0.22, 0.8, 0.3, 1);
+      animation-fill-mode: both;
+    }
+    html[data-vt="tab-next"]::view-transition-old(module-main) { animation-name: vtTabOutL; }
+    html[data-vt="tab-next"]::view-transition-new(module-main) { animation-name: vtTabInR; }
+    html[data-vt="tab-prev"]::view-transition-old(module-main) { animation-name: vtTabOutR; }
+    html[data-vt="tab-prev"]::view-transition-new(module-main) { animation-name: vtTabInL; }
+    @keyframes vtTabOutL { to { opacity: 0; transform: translateX(-28px); } }
+    @keyframes vtTabInR { from { opacity: 0; transform: translateX(28px); } }
+    @keyframes vtTabOutR { to { opacity: 0; transform: translateX(28px); } }
+    @keyframes vtTabInL { from { opacity: 0; transform: translateX(-28px); } }
 
     /* Globo con lo conversado antes de cambiar de modo: conserva la paleta en la que se hizo */
     .palette-light {
